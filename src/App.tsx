@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/db'
 import { useApp } from '@/store/app'
@@ -14,22 +14,33 @@ import { PurchaseDrawer } from '@/components/PurchaseDrawer'
 
 export default function App() {
   const { currentProjectId, setProject, view } = useApp()
-  const projects = useLiveQuery(() => db.projects.toArray(), []) ?? []
+  const projects = useLiveQuery(() => db.projects.toArray(), [])
   const [showCreate, setShowCreate] = useState(false)
   const [drawer, setDrawer] = useState<{ open: boolean; nodeId?: string }>({ open: false })
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const projectsLoaded = projects !== undefined
+  const list = projects ?? []
+  const autoOpenedRef = useRef(false)
 
   useEffect(() => {
-    if (projects.length === 0) {
-      setShowCreate(true)
+    if (!projectsLoaded) return
+    if (list.length === 0) {
+      if (!autoOpenedRef.current && !currentProjectId) {
+        autoOpenedRef.current = true
+        setShowCreate(true)
+      }
       return
     }
-    if (!currentProjectId || !projects.find((p) => p.id === currentProjectId)) {
-      setProject(projects[0].id)
+    autoOpenedRef.current = false
+    // Only auto-pick when nothing is selected. Don't "correct" a missing id —
+    // a freshly-created project may not be in `list` for one render yet, and
+    // deletion already calls setProject(null) explicitly.
+    if (!currentProjectId) {
+      setProject(list[0].id)
     }
-  }, [projects, currentProjectId, setProject])
+  }, [projectsLoaded, list, currentProjectId, setProject])
 
-  const current = projects.find((p) => p.id === currentProjectId) ?? null
+  const current = list.find((p) => p.id === currentProjectId) ?? null
 
   async function handleCreate(data: {
     name: string
@@ -48,7 +59,7 @@ export default function App() {
     <div className="app">
       <Topbar
         project={current}
-        projects={projects}
+        projects={list}
         onSwitch={(id) => setProject(id)}
         onNewProject={() => setShowCreate(true)}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
@@ -82,7 +93,7 @@ export default function App() {
 
       {showCreate && (
         <ProjectCreateModal
-          allowCancel={projects.length > 0}
+          allowCancel={list.length > 0}
           onClose={() => setShowCreate(false)}
           onSubmit={handleCreate}
           onDemoLoaded={(id) => {

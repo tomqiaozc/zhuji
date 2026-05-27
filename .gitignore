@@ -7,3 +7,6 @@ dist-ssr
 zhuji-demo.html
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+playwright-report
+test-results
+playwright/.cache
