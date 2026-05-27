@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { loadDemoProject } from '@/data/seed'
 import type { ProjectType } from '@/types'
 
 interface Props {
@@ -11,10 +12,11 @@ interface Props {
     startDate?: string
     expectedEndDate?: string
   }) => void | Promise<void>
+  onDemoLoaded?: (projectId: string) => void
   onClose: () => void
 }
 
-export function ProjectCreateModal({ allowCancel, onSubmit, onClose }: Props) {
+export function ProjectCreateModal({ allowCancel, onSubmit, onDemoLoaded, onClose }: Props) {
   const [name, setName] = useState('')
   const [address, setAddress] = useState('')
   const [area, setArea] = useState('')
@@ -111,6 +113,25 @@ export function ProjectCreateModal({ allowCancel, onSubmit, onClose }: Props) {
           {allowCancel && (
             <button className="btn" onClick={onClose}>
               取消
+            </button>
+          )}
+          {onDemoLoaded && (
+            <button
+              className="btn"
+              data-testid="btn-load-demo-modal"
+              onClick={async () => {
+                if (busy) return
+                setBusy(true)
+                try {
+                  const r = await loadDemoProject()
+                  onDemoLoaded(r.project.id)
+                } finally {
+                  setBusy(false)
+                }
+              }}
+              disabled={busy}
+            >
+              Load Demo Project
             </button>
           )}
           <button className="btn btn-primary" onClick={submit} disabled={!name.trim() || busy}>

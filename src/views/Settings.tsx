@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { db } from '@/db'
 import { deleteProject } from '@/lib/projects'
+import { clearAllData, loadDemoProject } from '@/data/seed'
 import { useApp } from '@/store/app'
 import type { Project, ProjectType } from '@/types'
 
@@ -18,6 +19,8 @@ export function Settings({ project, onNewProject }: Props) {
   const [startDate, setStartDate] = useState(project.startDate ?? '')
   const [expectedEndDate, setExpectedEndDate] = useState(project.expectedEndDate ?? '')
   const [saved, setSaved] = useState(false)
+  const [demoBusy, setDemoBusy] = useState(false)
+  const [demoMsg, setDemoMsg] = useState<string | null>(null)
 
   async function save() {
     await db.projects.update(project.id, {
@@ -35,6 +38,27 @@ export function Settings({ project, onNewProject }: Props) {
   async function handleDelete() {
     if (!confirm(`删除项目「${project.name}」？所有节点和采购都会一起删除。`)) return
     await deleteProject(project.id)
+    setProject(null)
+  }
+
+  async function handleLoadDemo() {
+    if (demoBusy) return
+    setDemoBusy(true)
+    setDemoMsg(null)
+    try {
+      const r = await loadDemoProject()
+      setProject(r.project.id)
+      setDemoMsg(`✓ 已加载「${r.project.name}」，含 ${r.nodeCount} 个节点 / ${r.purchaseCount} 笔采购`)
+      setTimeout(() => setDemoMsg(null), 3000)
+    } finally {
+      setDemoBusy(false)
+    }
+  }
+
+  async function handleClearAll() {
+    if (!confirm('确定清空所有数据？\n\n这会删除全部项目、节点、采购记录、图片、提醒，无法撤销。')) return
+    if (!confirm('再确认一次：真的要清空全部本地数据吗？')) return
+    await clearAllData()
     setProject(null)
   }
 
@@ -102,13 +126,41 @@ export function Settings({ project, onNewProject }: Props) {
         </div>
 
         <div className="col-12 card">
+          <div className="card-title">演示数据</div>
+          <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
+            一键加载一个"已经装到一半"的真实感样本项目（89㎡ 毛坯，约 30 笔采购），
+            方便快速体验各项功能。可重复加载，每次新建一个独立项目，不影响你已有的数据。
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              data-testid="btn-load-demo"
+              onClick={handleLoadDemo}
+              disabled={demoBusy}
+            >
+              {demoBusy ? '加载中…' : 'Load Demo Project · 加载示例项目'}
+            </button>
+            {demoMsg && <span style={{ color: 'var(--success)', fontSize: 13 }}>{demoMsg}</span>}
+          </div>
+        </div>
+
+        <div className="col-12 card">
           <div className="card-title">危险操作</div>
           <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
             删除当前项目会同时删除其下所有节点、采购、图片，无法撤销。
           </p>
-          <button className="btn btn-danger" onClick={handleDelete}>
-            删除项目
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-danger" onClick={handleDelete}>
+              删除当前项目
+            </button>
+            <button
+              className="btn btn-danger"
+              data-testid="btn-clear-all"
+              onClick={handleClearAll}
+            >
+              清空所有数据
+            </button>
+          </div>
         </div>
       </div>
     </section>

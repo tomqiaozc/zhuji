@@ -85,6 +85,10 @@ export default function App() {
           allowCancel={projects.length > 0}
           onClose={() => setShowCreate(false)}
           onSubmit={handleCreate}
+          onDemoLoaded={(id) => {
+            setProject(id)
+            setShowCreate(false)
+          }}
         />
       )}
 
