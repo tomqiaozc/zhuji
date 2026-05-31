@@ -24,11 +24,11 @@ test('cold-start + load demo populates Dashboard', async ({ page }) => {
   const progress = Number(progressText?.replace('%', ''))
   expect(progress).toBeGreaterThan(0)
 
-  // 累计支出在 60k - 80k 区间
+  // 累计支出在 150k - 220k 区间（全装修档案）
   const totalText = await page.locator('.metric .num').first().textContent()
   const total = await parseMoney(totalText ?? '')
-  expect(total).toBeGreaterThanOrEqual(60_000)
-  expect(total).toBeLessThanOrEqual(80_000)
+  expect(total).toBeGreaterThanOrEqual(150_000)
+  expect(total).toBeLessThanOrEqual(220_000)
 
   // 最近采购列表非空
   await expect(page.locator('.activity-list .activity-item').first()).toBeVisible()
@@ -52,13 +52,13 @@ test('node workspace: 4 tabs + checklist toggling updates progress', async ({ pa
   await tabs.locator('button.tab', { hasText: 'Checklist' }).dispatchEvent('click')
   await expect(page.locator('.check-progress')).toBeVisible()
 
-  // 找一个未勾选项，勾上
+  // 找一个已勾选项，取消勾选；全装修档案下所有 checklist 默认都打勾
   const before = await page.locator('.check-progress strong').textContent()
   const beforeDone = Number(before?.split('/')[0] ?? 0)
 
-  const unchecked = page.locator('.check-item:not(.done) input[type="checkbox"]').first()
-  await unchecked.click()
-  await expect(page.locator('.check-progress strong')).toContainText(`${beforeDone + 1}/`)
+  const checked = page.locator('.check-item.done input[type="checkbox"]').first()
+  await checked.click()
+  await expect(page.locator('.check-progress strong')).toContainText(`${beforeDone - 1}/`)
 
   await tabs.locator('button.tab', { hasText: '采购' }).dispatchEvent('click')
   await expect(page.locator('.purchase-toolbar')).toBeVisible()
