@@ -63,7 +63,7 @@ test('node workspace: 4 tabs + checklist toggling updates progress', async ({ pa
   await expect(page.locator('.purchase-toolbar')).toBeVisible()
 
   await tabs.locator('button.tab', { hasText: '备注' }).dispatchEvent('click')
-  await expect(page.locator('textarea.notes-area')).toBeVisible()
+  await expect(page.locator('.rt-editor')).toBeVisible()
 })
 
 // 3. 记账：填写完整字段（含购买链接），校验流水页 + Dashboard 累计支出

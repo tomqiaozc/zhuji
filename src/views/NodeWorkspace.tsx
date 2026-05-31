@@ -6,6 +6,7 @@ import { useApp } from '@/store/app'
 import { fmtMoney } from '@/lib/format'
 import { uid } from '@/lib/uid'
 import type { DecorNode, NodeStatus, Project } from '@/types'
+import { RichTextEditor } from '@/components/RichTextEditor'
 
 interface Props {
   project: Project
@@ -268,11 +269,10 @@ function NodePanel({
       )}
       {tab === 'note' && (
         <div className="tab-panel">
-          <textarea
-            className="notes-area"
-            placeholder="记录这个节点的备注、现场沟通要点、师傅联系方式…"
+          <RichTextEditor
             value={node.notes}
-            onChange={(e) => db.nodes.update(node.id, { notes: e.target.value })}
+            onChange={(html) => db.nodes.update(node.id, { notes: html })}
+            placeholder="记录这个节点的备注、现场沟通要点、师傅联系方式…"
           />
         </div>
       )}

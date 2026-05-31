@@ -4,6 +4,7 @@ import { db } from '@/db'
 import { useApp } from '@/store/app'
 import { createProject } from '@/lib/projects'
 import { startReminderLoop } from '@/lib/reminders'
+import { maybeWriteDailyZip, startMirrorLoop } from '@/lib/fsMirror'
 import { Topbar } from '@/components/Topbar'
 import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/views/Dashboard'
@@ -30,6 +31,8 @@ export default function App() {
 
   useEffect(() => {
     startReminderLoop()
+    startMirrorLoop()
+    void maybeWriteDailyZip()
   }, [])
 
   useEffect(() => {

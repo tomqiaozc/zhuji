@@ -1,9 +1,16 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { db } from '@/db'
 import { deleteProject } from '@/lib/projects'
 import { clearAllData, loadDemoProject } from '@/data/seed'
 import { useApp } from '@/store/app'
 import type { Project, ProjectType } from '@/types'
+import {
+  disableMirror,
+  isFsAccessSupported,
+  pickMirrorDir,
+} from '@/lib/fsMirror'
+import { exportFullZip, exportProjectPdf, importFullZip, triggerDownload } from '@/lib/backup'
+import dayjs from 'dayjs'
 
 interface Props {
   project: Project
@@ -21,6 +28,10 @@ export function Settings({ project, onNewProject }: Props) {
   const [saved, setSaved] = useState(false)
   const [demoBusy, setDemoBusy] = useState(false)
   const [demoMsg, setDemoMsg] = useState<string | null>(null)
+  const [mirrorMsg, setMirrorMsg] = useState<string | null>(null)
+  const [backupBusy, setBackupBusy] = useState(false)
+  const [backupMsg, setBackupMsg] = useState<string | null>(null)
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   async function save() {
     await db.projects.update(project.id, {
@@ -60,6 +71,60 @@ export function Settings({ project, onNewProject }: Props) {
     if (!confirm('再确认一次：真的要清空全部本地数据吗？')) return
     await clearAllData()
     setProject(null)
+  }
+
+  async function handlePickMirror() {
+    try {
+      const h = await pickMirrorDir()
+      if (h) setMirrorMsg('✓ 已选择目录，每分钟自动同步')
+    } catch (e) {
+      setMirrorMsg('✗ ' + ((e as Error)?.message ?? '选择失败'))
+    }
+  }
+
+  async function handleDisableMirror() {
+    await disableMirror()
+    setMirrorMsg('已停用本地镜像')
+  }
+
+  async function handleExportZip() {
+    if (backupBusy) return
+    setBackupBusy(true)
+    setBackupMsg(null)
+    try {
+      const blob = await exportFullZip()
+      triggerDownload(blob, `zhuji-backup-${dayjs().format('YYYYMMDD-HHmm')}.zip`)
+      setBackupMsg('✓ 已导出备份压缩包')
+    } catch (e) {
+      setBackupMsg('✗ ' + ((e as Error)?.message ?? '导出失败'))
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
+  async function handleImportZip(file: File) {
+    if (!confirm('导入会清空当前所有本地数据并替换为备份内容，确定继续？')) return
+    setBackupBusy(true)
+    setBackupMsg(null)
+    try {
+      const r = await importFullZip(file)
+      setBackupMsg(
+        `✓ 已导入 ${r.projects} 项目 / ${r.nodes} 节点 / ${r.purchases} 采购 / ${r.assets} 图片`,
+      )
+      setProject(null)
+    } catch (e) {
+      setBackupMsg('✗ ' + ((e as Error)?.message ?? '导入失败'))
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
+  async function handleExportPdf() {
+    try {
+      await exportProjectPdf(project.id)
+    } catch (e) {
+      alert('导出 PDF 失败：' + ((e as Error)?.message ?? ''))
+    }
   }
 
   return (
@@ -142,6 +207,70 @@ export function Settings({ project, onNewProject }: Props) {
             </button>
             {demoMsg && <span style={{ color: 'var(--success)', fontSize: 13 }}>{demoMsg}</span>}
           </div>
+        </div>
+
+        <div className="col-12 card">
+          <div className="card-title">完整备份与恢复</div>
+          <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
+            导出包含所有项目、节点、采购、提醒和图片的 Zip 压缩包；也可以从一个备份包导入还原（会清空当前数据）。
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button className="btn btn-primary" onClick={handleExportZip} disabled={backupBusy}>
+              {backupBusy ? '处理中…' : '导出备份 Zip'}
+            </button>
+            <button
+              className="btn"
+              onClick={() => importInputRef.current?.click()}
+              disabled={backupBusy}
+            >
+              从 Zip 导入…
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".zip,application/zip"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) void handleImportZip(f)
+                e.target.value = ''
+              }}
+            />
+            {backupMsg && <span style={{ fontSize: 13 }}>{backupMsg}</span>}
+          </div>
+        </div>
+
+        <div className="col-12 card">
+          <div className="card-title">本地镜像备份（Chrome / Edge）</div>
+          <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
+            选择本机一个目录，应用会每分钟把数据快照写入 <code>zhuji-data.json</code>；每天还会在 <code>snapshots/</code> 下生成一个完整 Zip。
+            适合放入 iCloud / OneDrive / Dropbox 文件夹做多端同步。
+          </p>
+          {isFsAccessSupported() ? (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button className="btn btn-primary" onClick={handlePickMirror}>
+                选择镜像目录…
+              </button>
+              <button className="btn" onClick={handleDisableMirror}>
+                停用镜像
+              </button>
+              {mirrorMsg && <span style={{ fontSize: 13 }}>{mirrorMsg}</span>}
+            </div>
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--text-mute)' }}>
+              当前浏览器不支持 File System Access API（推荐使用 Chrome 或 Edge）。
+            </div>
+          )}
+        </div>
+
+        <div className="col-12 card">
+          <div className="card-title">导出装修档案 PDF</div>
+          <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
+            生成一份当前项目的可打印档案（节点进度、各阶段花费、采购流水），在新窗口里使用浏览器的"打印 → 另存为 PDF"即可保存。
+          </p>
+          <button className="btn btn-primary" onClick={handleExportPdf}>
+            生成 PDF
+          </button>
         </div>
 
         <div className="col-12 card">
