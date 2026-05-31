@@ -62,6 +62,7 @@ export async function pickMirrorDir(): Promise<FileSystemDirectoryHandle | null>
   const handle = await (window as any).showDirectoryPicker({ mode: 'readwrite' })
   await setStoredHandle(handle)
   scheduleMirrorWrite()
+  void maybeWriteDailyZip()
   return handle
 }
 

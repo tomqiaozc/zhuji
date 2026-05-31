@@ -6,6 +6,7 @@ import { useApp } from '@/store/app'
 import type { Project, ProjectType } from '@/types'
 import {
   disableMirror,
+  downloadSnapshotZip,
   isFsAccessSupported,
   pickMirrorDir,
 } from '@/lib/fsMirror'
@@ -76,7 +77,7 @@ export function Settings({ project, onNewProject }: Props) {
   async function handlePickMirror() {
     try {
       const h = await pickMirrorDir()
-      if (h) setMirrorMsg('✓ 已选择目录，每分钟自动同步')
+      if (h) setMirrorMsg('✓ 已选择目录，数据变更将在 2 秒内自动同步到 筑迹/projects/<projectId>/data.json')
     } catch (e) {
       setMirrorMsg('✗ ' + ((e as Error)?.message ?? '选择失败'))
     }
@@ -85,6 +86,15 @@ export function Settings({ project, onNewProject }: Props) {
   async function handleDisableMirror() {
     await disableMirror()
     setMirrorMsg('已停用本地镜像')
+  }
+
+  async function handleDownloadSnapshot() {
+    try {
+      await downloadSnapshotZip()
+      setMirrorMsg('✓ 已下载当前备份 Zip')
+    } catch (e) {
+      setMirrorMsg('✗ ' + ((e as Error)?.message ?? '下载失败'))
+    }
   }
 
   async function handleExportZip() {
@@ -243,7 +253,8 @@ export function Settings({ project, onNewProject }: Props) {
         <div className="col-12 card">
           <div className="card-title">本地镜像备份（Chrome / Edge）</div>
           <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
-            选择本机一个目录，应用会每分钟把数据快照写入 <code>zhuji-data.json</code>；每天还会在 <code>snapshots/</code> 下生成一个完整 Zip。
+            选择本机一个目录后，数据每次变更都会在 2 秒内同步到 <code>筑迹/projects/&lt;projectId&gt;/data.json</code>，
+            图片放在同目录的 <code>images/</code> 下；每天还会在 <code>筑迹/snapshots/</code> 下生成一个完整 Zip（保留 30 天）。
             适合放入 iCloud / OneDrive / Dropbox 文件夹做多端同步。
           </p>
           {isFsAccessSupported() ? (
@@ -257,8 +268,19 @@ export function Settings({ project, onNewProject }: Props) {
               {mirrorMsg && <span style={{ fontSize: 13 }}>{mirrorMsg}</span>}
             </div>
           ) : (
-            <div style={{ fontSize: 13, color: 'var(--text-mute)' }}>
-              当前浏览器不支持 File System Access API（推荐使用 Chrome 或 Edge）。
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 13, color: 'var(--text-mute)', flexBasis: '100%' }}>
+                当前浏览器不支持 File System Access API（推荐使用 Chrome 或 Edge）。
+                你仍然可以手动下载当前数据快照 Zip。
+              </div>
+              <button
+                className="btn btn-primary"
+                data-testid="btn-download-snapshot"
+                onClick={handleDownloadSnapshot}
+              >
+                下载当前备份 Zip
+              </button>
+              {mirrorMsg && <span style={{ fontSize: 13 }}>{mirrorMsg}</span>}
             </div>
           )}
         </div>

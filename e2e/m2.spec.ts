@@ -379,3 +379,195 @@ test('fsMirror: startMirrorLoop is idempotent and safe without a chosen dir', as
   })
   expect(ok).toBe(true)
 })
+
+// M2-10: 非 FSA 浏览器降级 — Settings 提供「下载当前备份 Zip」按钮，点击触发下载
+test('fsMirror fallback: non-FSA browser shows download snapshot button', async ({ page }) => {
+  // Strip showDirectoryPicker before the app loads so isFsAccessSupported() === false.
+  await page.addInitScript(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).showDirectoryPicker
+    } catch {
+      // ignore
+    }
+  })
+  await loadDemo(page)
+
+  await page.getByRole('button', { name: /项目设置/ }).click()
+  const btn = page.getByTestId('btn-download-snapshot')
+  await expect(btn).toBeVisible()
+
+  // Click triggers a real download — assert via download event.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    btn.click(),
+  ])
+  expect(download.suggestedFilename()).toMatch(/^zhuji-\d{4}-\d{2}-\d{2}\.zip$/)
+})
+
+// M2-11: 首次 pickMirrorDir 成功后立即触发当日 Zip（设置 LS_LAST_DAILY 为今天）
+test('fsMirror: first pickMirrorDir triggers daily zip immediately', async ({ page }) => {
+  await loadDemo(page)
+  // Reset the daily-zip sentinel so the test is independent of prior days.
+  await page.evaluate(() => localStorage.removeItem('zhuji-last-daily-zip'))
+
+  const sentinel = await page.evaluate(async () => {
+    // The real fsMirror persists the chosen handle into a separate IDB
+    // ('zhuji-fs-handles'). Structured-cloning our stub directory handle into
+    // IDB would fail because the stub has methods. Intercept indexedDB.open
+    // for that one DB and back it with an in-memory Map instead, so
+    // setStoredHandle / getStoredHandle round-trip without IDB serialization.
+    const memHandles = new Map<string, unknown>()
+    const realOpen = indexedDB.open.bind(indexedDB)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(indexedDB as any).open = (name: string, version?: number) => {
+      if (name !== 'zhuji-fs-handles') return realOpen(name, version)
+      const fakeReq: Partial<IDBOpenDBRequest> & {
+        result: IDBDatabase
+        onsuccess: ((this: IDBRequest, ev: Event) => void) | null
+        onerror: ((this: IDBRequest, ev: Event) => void) | null
+        onupgradeneeded: ((this: IDBOpenDBRequest, ev: IDBVersionChangeEvent) => void) | null
+      } = {
+        result: null as unknown as IDBDatabase,
+        onsuccess: null,
+        onerror: null,
+        onupgradeneeded: null,
+      }
+      const fakeStore = {
+        get(key: string) {
+          const r: { result: unknown; onsuccess: ((ev: Event) => void) | null; onerror: null } = {
+            result: memHandles.get(key),
+            onsuccess: null,
+            onerror: null,
+          }
+          queueMicrotask(() => r.onsuccess?.(new Event('success')))
+          return r
+        },
+        put(value: unknown, key: string) {
+          memHandles.set(key, value)
+          const r = { onsuccess: null, onerror: null }
+          return r
+        },
+        delete(key: string) {
+          memHandles.delete(key)
+          return { onsuccess: null, onerror: null }
+        },
+      }
+      const fakeDB = {
+        transaction(_store: string, _mode: string) {
+          const tx: {
+            objectStore: (n: string) => typeof fakeStore
+            oncomplete: ((ev: Event) => void) | null
+            onerror: null
+            error: null
+          } = {
+            objectStore: () => fakeStore,
+            oncomplete: null,
+            onerror: null,
+            error: null,
+          }
+          queueMicrotask(() => tx.oncomplete?.(new Event('complete')))
+          return tx
+        },
+      } as unknown as IDBDatabase
+      fakeReq.result = fakeDB
+      queueMicrotask(() => fakeReq.onsuccess?.call(fakeReq as unknown as IDBRequest, new Event('success')))
+      return fakeReq as unknown as IDBOpenDBRequest
+    }
+
+    const mod: {
+      pickMirrorDir: () => Promise<unknown>
+    } = await import('/src/lib/fsMirror.ts')
+
+    // In-memory FileSystemDirectoryHandle stub that satisfies the methods the
+    // fsMirror module calls — ensureDir, getFileHandle/createWritable, entries,
+    // queryPermission/requestPermission, removeEntry.
+    function makeWritable() {
+      return {
+        async write(_data: BlobPart) {},
+        async close() {},
+      }
+    }
+    function makeFileHandle() {
+      return {
+        kind: 'file' as const,
+        async createWritable() {
+          return makeWritable()
+        },
+      }
+    }
+    interface Dir {
+      kind: 'directory'
+      files: Map<string, ReturnType<typeof makeFileHandle>>
+      dirs: Map<string, Dir>
+      getFileHandle(name: string, opts?: { create?: boolean }): Promise<ReturnType<typeof makeFileHandle>>
+      getDirectoryHandle(name: string, opts?: { create?: boolean }): Promise<Dir>
+      removeEntry(name: string): Promise<void>
+      queryPermission(): Promise<'granted'>
+      requestPermission(): Promise<'granted'>
+      entries(): AsyncIterable<[string, unknown]>
+    }
+    function makeDir(): Dir {
+      const d: Dir = {
+        kind: 'directory',
+        files: new Map(),
+        dirs: new Map(),
+        async getFileHandle(name, opts) {
+          let fh = d.files.get(name)
+          if (!fh) {
+            if (!opts?.create) throw new Error('not found: ' + name)
+            fh = makeFileHandle()
+            d.files.set(name, fh)
+          }
+          return fh
+        },
+        async getDirectoryHandle(name, opts) {
+          let sub = d.dirs.get(name)
+          if (!sub) {
+            if (!opts?.create) throw new Error('not found: ' + name)
+            sub = makeDir()
+            d.dirs.set(name, sub)
+          }
+          return sub
+        },
+        async removeEntry(name) {
+          d.files.delete(name)
+          d.dirs.delete(name)
+        },
+        async queryPermission() {
+          return 'granted'
+        },
+        async requestPermission() {
+          return 'granted'
+        },
+        entries() {
+          const files = d.files
+          const dirs = d.dirs
+          return {
+            async *[Symbol.asyncIterator]() {
+              for (const [n, f] of files) yield [n, f] as [string, unknown]
+              for (const [n, s] of dirs) yield [n, s] as [string, unknown]
+            },
+          }
+        },
+      }
+      return d
+    }
+
+    const stubRoot = makeDir()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).showDirectoryPicker = async () => stubRoot
+
+    await mod.pickMirrorDir()
+
+    // Wait for the async maybeWriteDailyZip kicked off by pickMirrorDir.
+    for (let i = 0; i < 50; i++) {
+      if (localStorage.getItem('zhuji-last-daily-zip')) break
+      await new Promise((r) => setTimeout(r, 100))
+    }
+    return localStorage.getItem('zhuji-last-daily-zip')
+  })
+
+  const today = new Date().toISOString().slice(0, 10)
+  expect(sentinel).toBe(today)
+})
