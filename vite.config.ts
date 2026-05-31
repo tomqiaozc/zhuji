@@ -30,4 +30,16 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          recharts: ['recharts'],
+          xlsx: ['xlsx'],
+          dexie: ['dexie', 'dexie-react-hooks'],
+        },
+      },
+    },
+  },
 })

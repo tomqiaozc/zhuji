@@ -1,16 +1,22 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import {
   PieChart,
   Pie,
   Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
   ResponsiveContainer,
   Tooltip,
   Legend,
 } from 'recharts'
 import { db } from '@/db'
 import { fmtMoney } from '@/lib/format'
+import { useApp } from '@/store/app'
 import type { Project } from '@/types'
 
 interface Props {
@@ -44,6 +50,9 @@ const PIE_COLORS = [
 ]
 
 export function Dashboard({ project, onAddPurchase }: Props) {
+  const jumpToPurchasesByStage = useApp((s) => s.jumpToPurchasesByStage)
+  const [trendGrain, setTrendGrain] = useState<'week' | 'month'>('week')
+
   const nodes =
     useLiveQuery(() => db.nodes.where('projectId').equals(project.id).toArray(), [project.id]) ?? []
   const purchases =
@@ -91,6 +100,50 @@ export function Dashboard({ project, onAddPurchase }: Props) {
         .slice(0, 5),
     [purchases],
   )
+
+  const topPurchases = useMemo(
+    () =>
+      [...purchases]
+        .filter((p) => p.totalPrice > 0)
+        .sort((a, b) => b.totalPrice - a.totalPrice)
+        .slice(0, 5),
+    [purchases],
+  )
+
+  // Bucket purchases into the last 8 weeks / 6 months by purchaseDate.
+  const trendData = useMemo(() => {
+    if (purchases.length === 0) return [] as { label: string; amount: number; count: number }[]
+    const buckets = new Map<string, { amount: number; count: number }>()
+    const now = dayjs()
+    if (trendGrain === 'week') {
+      for (let i = 7; i >= 0; i--) {
+        const k = now.subtract(i, 'week').startOf('week').format('MM/DD')
+        buckets.set(k, { amount: 0, count: 0 })
+      }
+      for (const p of purchases) {
+        const k = dayjs(p.purchaseDate).startOf('week').format('MM/DD')
+        const b = buckets.get(k)
+        if (b) {
+          b.amount += p.totalPrice
+          b.count += 1
+        }
+      }
+    } else {
+      for (let i = 5; i >= 0; i--) {
+        const k = now.subtract(i, 'month').format('YYYY/MM')
+        buckets.set(k, { amount: 0, count: 0 })
+      }
+      for (const p of purchases) {
+        const k = dayjs(p.purchaseDate).format('YYYY/MM')
+        const b = buckets.get(k)
+        if (b) {
+          b.amount += p.totalPrice
+          b.count += 1
+        }
+      }
+    }
+    return [...buckets.entries()].map(([label, v]) => ({ label, ...v }))
+  }, [purchases, trendGrain])
 
   const startDate = project.startDate ? dayjs(project.startDate) : null
   const daysIn = startDate ? dayjs().diff(startDate, 'day') : null
@@ -183,34 +236,62 @@ export function Dashboard({ project, onAddPurchase }: Props) {
         </div>
 
         <div className="col-8 card">
-          <div className="card-title">各阶段花费分布</div>
+          <div className="card-title">各阶段花费分布（点击查看明细）</div>
           {stageTotal === 0 ? (
             <div className="empty">还没有采购记录</div>
           ) : (
             <>
-              <div className="stage-bar">
+              <div className="stage-bar" data-testid="stage-bar">
                 {stageCost.map(([stage, v]) => (
-                  <div
+                  <button
                     key={stage}
+                    type="button"
+                    data-testid={`stage-bar-seg-${stage}`}
+                    onClick={() => jumpToPurchasesByStage(stage)}
                     style={{
                       width: `${(v / stageTotal) * 100}%`,
                       background: STAGE_COLORS[stage] ?? '#6b7280',
+                      border: 'none',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      padding: 0,
+                      fontSize: 12,
+                      lineHeight: '28px',
+                      height: 28,
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
                     }}
-                    title={`${stage} ${fmtMoney(v)}`}
+                    title={`${stage} ${fmtMoney(v)} · 点击查看`}
+                    aria-label={`${stage} 花费 ${fmtMoney(v)}，点击筛选采购`}
                   >
                     {(v / stageTotal) * 100 >= 10 ? stage : ''}
-                  </div>
+                  </button>
                 ))}
               </div>
               <div className="stage-legend">
                 {stageCost.map(([stage, v]) => (
-                  <span key={stage}>
+                  <button
+                    key={stage}
+                    type="button"
+                    onClick={() => jumpToPurchasesByStage(stage)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '2px 6px',
+                      fontSize: 12,
+                      color: 'var(--text-soft)',
+                    }}
+                  >
                     <span
                       className="dot"
                       style={{ background: STAGE_COLORS[stage] ?? '#6b7280' }}
                     />
                     {stage} {fmtMoney(v)}
-                  </span>
+                  </button>
                 ))}
               </div>
             </>
@@ -238,11 +319,128 @@ export function Dashboard({ project, onAddPurchase }: Props) {
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(v: number) => fmtMoney(v)} />
+                  <Tooltip
+                    formatter={(v: number, name: string) => [fmtMoney(v), name]}
+                  />
                   <Legend verticalAlign="bottom" height={24} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
+          )}
+        </div>
+
+        <div className="col-8 card">
+          <div
+            className="card-title"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <span>采购时间趋势</span>
+            <div style={{ display: 'inline-flex', gap: 4 }}>
+              <button
+                type="button"
+                className={trendGrain === 'week' ? 'btn btn-sm btn-primary' : 'btn btn-sm'}
+                data-testid="trend-grain-week"
+                onClick={() => setTrendGrain('week')}
+              >
+                按周
+              </button>
+              <button
+                type="button"
+                className={trendGrain === 'month' ? 'btn btn-sm btn-primary' : 'btn btn-sm'}
+                data-testid="trend-grain-month"
+                onClick={() => setTrendGrain('month')}
+              >
+                按月
+              </button>
+            </div>
+          </div>
+          {trendData.length === 0 ? (
+            <div className="empty">暂无趋势数据</div>
+          ) : (
+            <div style={{ width: '100%', height: 220 }} data-testid="trend-chart">
+              <ResponsiveContainer>
+                <BarChart data={trendData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
+                  <Tooltip
+                    formatter={(v: number, key: string) =>
+                      key === 'amount' ? [fmtMoney(v), '金额'] : [v, '笔数']
+                    }
+                  />
+                  <Bar dataKey="amount" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        <div className="col-4 card">
+          <div className="card-title">Top 5 高价采购</div>
+          {topPurchases.length === 0 ? (
+            <div className="empty">暂无采购</div>
+          ) : (
+            <ol
+              data-testid="top-purchases"
+              style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              {topPurchases.map((p, i) => {
+                const node = nodes.find((n) => n.id === p.nodeId)
+                return (
+                  <li
+                    key={p.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontSize: 13,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        background: i === 0 ? '#f59e0b' : 'var(--border-strong)',
+                        color: i === 0 ? '#fff' : 'var(--text-soft)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {i + 1}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontWeight: 500,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={p.name}
+                      >
+                        {p.name}
+                      </div>
+                      <div style={{ color: 'var(--text-soft)', fontSize: 11 }}>
+                        {node?.stage ?? '—'} · {p.category}
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: 600 }}>{fmtMoney(p.totalPrice)}</div>
+                  </li>
+                )
+              })}
+            </ol>
           )}
         </div>
 

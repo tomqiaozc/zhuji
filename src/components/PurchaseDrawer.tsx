@@ -4,6 +4,8 @@ import dayjs from 'dayjs'
 import { db } from '@/db'
 import { uid } from '@/lib/uid'
 import { fmtMoney } from '@/lib/format'
+import { compressImage } from '@/lib/image'
+import { pushToast } from '@/lib/toast'
 import type { Project, Purchase, Asset } from '@/types'
 
 interface Props {
@@ -62,6 +64,14 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
     }
   }, [])
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
   function pendingPreview(p: { id: string; file: File }) {
     if (!blobUrlsRef.current.has(p.id)) {
       blobUrlsRef.current.set(p.id, URL.createObjectURL(p.file))
@@ -75,6 +85,7 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
     const newIds: string[] = []
     for (const f of Array.from(fl)) {
       if (!f.type.startsWith('image/')) continue
+      const c = await compressImage(f)
       const id = uid('ast')
       if (editing) {
         const asset: Asset = {
@@ -82,16 +93,16 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
           projectId: project.id,
           refType: 'purchase',
           refId: editing.id,
-          fileName: f.name,
-          mimeType: f.type,
-          blob: f,
-          size: f.size,
+          fileName: c.name,
+          mimeType: c.type,
+          blob: c,
+          size: c.size,
           createdAt: new Date().toISOString(),
         }
         await db.assets.add(asset)
         newIds.push(id)
       } else {
-        next.push({ id, file: f })
+        next.push({ id, file: c })
         newIds.push(id)
       }
     }
@@ -169,6 +180,7 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
           imageIds,
         }
         await db.purchases.update(editing.id, patch)
+        pushToast('已保存采购记录', 'success', 2400)
       } else {
         const purchaseId = uid('pur')
         // Commit pending images now that we know the real purchase id.
@@ -205,8 +217,13 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
           createdAt: new Date().toISOString(),
         }
         await db.purchases.add(p)
+        pushToast('已记录新采购', 'success', 2400)
       }
       onClose()
+    } catch (e) {
+      const msg = (e as Error)?.message ?? '未知错误'
+      setError(`写入失败：${msg}`)
+      pushToast(`保存失败：${msg}`, 'error', 6000)
     } finally {
       setBusy(false)
     }

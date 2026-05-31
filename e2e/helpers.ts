@@ -16,17 +16,21 @@ export async function freshSession(page: Page) {
       window.sessionStorage.clear()
       indexedDB.deleteDatabase('zhuji-db')
       window.localStorage.setItem('__zhuji_e2e_wiped__', '1')
+      // Suppress the first-run NodeWorkspace onboarding overlay so it doesn't
+      // intercept clicks in existing e2e flows.
+      window.localStorage.setItem('zhuji-onboarded-node-workspace-v1', '1')
     } catch {}
   })
 }
 
 /**
- * Open the app, click "Load Demo Project" in the first-run modal.
+ * Open the app, click "Load Demo Project" in the empty-hero welcome screen.
  * Returns once Dashboard is visible with the demo project active.
  */
 export async function loadDemo(page: Page) {
   await page.goto('/')
-  await page.getByTestId('btn-load-demo-modal').click()
+  // First-run welcome screen (post-M3) replaces the auto-popped modal.
+  await page.getByTestId('empty-hero-demo').click()
   await expect(page.getByText('示范家 · 89㎡', { exact: false }).first()).toBeVisible()
   await page.getByRole('button', { name: /总览/ }).first().click()
   await expect(page.getByText('累计支出')).toBeVisible()

@@ -1,5 +1,5 @@
 import { db } from '@/db'
-import { STAGE_TEMPLATES } from '@/data/templates'
+import { getActiveTemplates } from '@/data/userTemplates'
 import type { DecorNode, Project } from '@/types'
 import { uid } from './uid'
 
@@ -7,7 +7,7 @@ export async function instantiateNodes(projectId: string): Promise<DecorNode[]> 
   const now = new Date().toISOString()
   const nodes: DecorNode[] = []
   let order = 0
-  for (const stage of STAGE_TEMPLATES) {
+  for (const stage of getActiveTemplates()) {
     for (const n of stage.nodes) {
       nodes.push({
         id: uid('node'),

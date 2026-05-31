@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
-import * as XLSX from 'xlsx'
 import { db } from '@/db'
 import { deletePurchase } from '@/lib/cascade'
 import { fmtMoney } from '@/lib/format'
+import { useApp } from '@/store/app'
 import type { Project, Purchase } from '@/types'
 import { PurchaseDrawer } from '@/components/PurchaseDrawer'
 
@@ -30,6 +30,17 @@ export function Purchases({ project, onAddPurchase }: Props) {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [editing, setEditing] = useState<Purchase | null>(null)
+
+  // Sync external "jump to stage" requests from Dashboard.
+  const externalStageFilter = useApp((s) => s.purchaseStageFilter)
+  const setExternalStageFilter = useApp((s) => s.setPurchaseStageFilter)
+  useEffect(() => {
+    if (externalStageFilter) {
+      setStageFilter(externalStageFilter)
+      setNodeFilter('all')
+      setExternalStageFilter(null)
+    }
+  }, [externalStageFilter, setExternalStageFilter])
 
   const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
   const stages = useMemo(() => [...new Set(nodes.map((n) => n.stage))], [nodes])
@@ -57,7 +68,8 @@ export function Purchases({ project, onAddPurchase }: Props) {
 
   const total = filtered.reduce((s, p) => s + p.totalPrice, 0)
 
-  function exportExcel() {
+  async function exportExcel() {
+    const XLSX = await import('xlsx')
     const rows = filtered.map((p) => {
       const node = nodeMap.get(p.nodeId)
       return {

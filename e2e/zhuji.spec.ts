@@ -8,9 +8,10 @@ test.beforeEach(async ({ page }) => {
 // 1. 冷启动 + 加载示例：Dashboard 显示 mock 数据
 test('cold-start + load demo populates Dashboard', async ({ page }) => {
   await page.goto('/')
-  // 首次进入应弹出新建项目，并提供 Load Demo 按钮
-  await expect(page.getByTestId('btn-load-demo-modal')).toBeVisible()
-  await page.getByTestId('btn-load-demo-modal').click()
+  // 首次进入应展示欢迎卡片，提供 Load Demo 按钮
+  await expect(page.getByTestId('empty-hero')).toBeVisible()
+  await expect(page.getByTestId('empty-hero-demo')).toBeVisible()
+  await page.getByTestId('empty-hero-demo').click()
 
   // 项目切换器应显示示范家
   await expect(page.getByText('示范家 · 89㎡', { exact: false }).first()).toBeVisible()

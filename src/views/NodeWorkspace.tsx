@@ -9,6 +9,7 @@ import { uid } from '@/lib/uid'
 import type { DecorNode, NodeStatus, Project } from '@/types'
 import { RichTextEditor } from '@/components/RichTextEditor'
 import { NodeImagesPanel } from '@/components/NodeImagesPanel'
+import { NodeWorkspaceOnboarding } from '@/components/NodeWorkspaceOnboarding'
 
 interface Props {
   project: Project
@@ -84,6 +85,7 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
 
         {activeNode && <NodePanel node={activeNode} project={project} onAddPurchase={onAddPurchase} />}
       </div>
+      <NodeWorkspaceOnboarding />
     </section>
   )
 }

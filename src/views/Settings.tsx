@@ -11,6 +11,7 @@ import {
   pickMirrorDir,
 } from '@/lib/fsMirror'
 import { exportFullZip, exportProjectPdf, importFullZip, triggerDownload } from '@/lib/backup'
+import { TemplateEditor } from '@/components/TemplateEditor'
 import dayjs from 'dayjs'
 
 interface Props {
@@ -32,6 +33,7 @@ export function Settings({ project, onNewProject }: Props) {
   const [mirrorMsg, setMirrorMsg] = useState<string | null>(null)
   const [backupBusy, setBackupBusy] = useState(false)
   const [backupMsg, setBackupMsg] = useState<string | null>(null)
+  const [showTemplates, setShowTemplates] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
 
   async function save() {
@@ -296,6 +298,23 @@ export function Settings({ project, onNewProject }: Props) {
         </div>
 
         <div className="col-12 card">
+          <div className="card-title">节点模板管理</div>
+          <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
+            管理新建项目时使用的默认节点模板（阶段、节点、避坑要点、checklist）。
+            模板变更只影响<strong>新建</strong>项目，已有项目的节点不会被改动。
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => setShowTemplates(true)}
+              data-testid="btn-open-templates"
+            >
+              打开模板编辑器
+            </button>
+          </div>
+        </div>
+
+        <div className="col-12 card">
           <div className="card-title">危险操作</div>
           <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
             删除当前项目会同时删除其下所有节点、采购、图片，无法撤销。
@@ -314,6 +333,8 @@ export function Settings({ project, onNewProject }: Props) {
           </div>
         </div>
       </div>
+
+      {showTemplates && <TemplateEditor onClose={() => setShowTemplates(false)} />}
     </section>
   )
 }

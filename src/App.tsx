@@ -5,6 +5,8 @@ import { useApp } from '@/store/app'
 import { createProject } from '@/lib/projects'
 import { startReminderLoop } from '@/lib/reminders'
 import { maybeWriteDailyZip, startMirrorLoop } from '@/lib/fsMirror'
+import { loadDemoProject } from '@/data/seed'
+import { pushToast } from '@/lib/toast'
 import { Topbar } from '@/components/Topbar'
 import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/views/Dashboard'
@@ -17,6 +19,10 @@ import { PurchaseDrawer } from '@/components/PurchaseDrawer'
 import { ReminderPanel } from '@/components/ReminderPanel'
 import { SearchPalette } from '@/components/SearchPalette'
 import { ReminderToastHost } from '@/components/ReminderToastHost'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { EmptyHero } from '@/components/EmptyHero'
+import { ToastHost } from '@/components/ToastHost'
+import { KeyboardHelp } from '@/components/KeyboardHelp'
 
 export default function App() {
   const { currentProjectId, setProject, view, setActiveNode, setView } = useApp()
@@ -26,6 +32,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showReminders, setShowReminders] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+  const [demoBusy, setDemoBusy] = useState(false)
   const projectsLoaded = projects !== undefined
   const list = projects ?? []
   const autoOpenedRef = useRef(false)
@@ -37,29 +45,45 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    function inEditable(t: EventTarget | null) {
+      if (!(t instanceof HTMLElement)) return false
+      const tag = t.tagName
+      return (
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        t.isContentEditable
+      )
+    }
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         if (currentProjectId) setShowSearch(true)
+        return
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        if (currentProjectId) setDrawer({ open: true })
+        return
+      }
+      if (e.key === '?' && !inEditable(e.target) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault()
+        setShowHelp(true)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [currentProjectId])
 
+  // No projects yet — keep the welcome screen visible; don't auto-pop the
+  // creation modal anymore (the EmptyHero replaces it).
   useEffect(() => {
     if (!projectsLoaded) return
     if (list.length === 0) {
-      if (!autoOpenedRef.current && !currentProjectId) {
-        autoOpenedRef.current = true
-        setShowCreate(true)
-      }
+      autoOpenedRef.current = true
       return
     }
     autoOpenedRef.current = false
-    // Only auto-pick when nothing is selected. Don't "correct" a missing id —
-    // a freshly-created project may not be in `list` for one render yet, and
-    // deletion already calls setProject(null) explicitly.
     if (!currentProjectId) {
       setProject(list[0].id)
     }
@@ -75,9 +99,28 @@ export default function App() {
     startDate?: string
     expectedEndDate?: string
   }) {
-    const proj = await createProject(data)
-    setProject(proj.id)
-    setShowCreate(false)
+    try {
+      const proj = await createProject(data)
+      setProject(proj.id)
+      setShowCreate(false)
+      pushToast(`已创建项目「${proj.name}」`, 'success')
+    } catch (e) {
+      pushToast(`新建失败：${(e as Error)?.message ?? ''}`, 'error', 6000)
+    }
+  }
+
+  async function handleLoadDemo() {
+    if (demoBusy) return
+    setDemoBusy(true)
+    try {
+      const r = await loadDemoProject()
+      setProject(r.project.id)
+      pushToast(`✓ 已加载「${r.project.name}」`, 'success')
+    } catch (e) {
+      pushToast(`加载示例失败：${(e as Error)?.message ?? ''}`, 'error', 6000)
+    } finally {
+      setDemoBusy(false)
+    }
   }
 
   return (
@@ -94,29 +137,34 @@ export default function App() {
       <div className="body">
         <Sidebar mobileOpen={sidebarOpen} onNav={() => setSidebarOpen(false)} />
         <main className="main">
-          {!current ? (
-            <div className="view">
-              <div className="empty">
-                还没有项目。{' '}
-                <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
-                  新建项目
-                </button>
-              </div>
-            </div>
-          ) : view === 'dashboard' ? (
-            <Dashboard project={current} onAddPurchase={() => setDrawer({ open: true })} />
-          ) : view === 'node' ? (
-            <NodeWorkspace
-              project={current}
-              onAddPurchase={(nodeId) => setDrawer({ open: true, nodeId })}
-            />
-          ) : view === 'purchase' ? (
-            <Purchases project={current} onAddPurchase={() => setDrawer({ open: true })} />
-          ) : view === 'timeline' ? (
-            <Timeline project={current} />
-          ) : (
-            <Settings key={current.id} project={current} onNewProject={() => setShowCreate(true)} />
-          )}
+          <ErrorBoundary>
+            {!current ? (
+              projectsLoaded && list.length === 0 ? (
+                <EmptyHero
+                  onCreateProject={() => setShowCreate(true)}
+                  onLoadDemo={handleLoadDemo}
+                  demoBusy={demoBusy}
+                />
+              ) : (
+                <div className="view">
+                  <div className="empty">加载中…</div>
+                </div>
+              )
+            ) : view === 'dashboard' ? (
+              <Dashboard project={current} onAddPurchase={() => setDrawer({ open: true })} />
+            ) : view === 'node' ? (
+              <NodeWorkspace
+                project={current}
+                onAddPurchase={(nodeId) => setDrawer({ open: true, nodeId })}
+              />
+            ) : view === 'purchase' ? (
+              <Purchases project={current} onAddPurchase={() => setDrawer({ open: true })} />
+            ) : view === 'timeline' ? (
+              <Timeline project={current} />
+            ) : (
+              <Settings key={current.id} project={current} onNewProject={() => setShowCreate(true)} />
+            )}
+          </ErrorBoundary>
         </main>
       </div>
 
@@ -155,7 +203,10 @@ export default function App() {
         />
       )}
 
+      {showHelp && <KeyboardHelp onClose={() => setShowHelp(false)} />}
+
       <ReminderToastHost />
+      <ToastHost />
     </div>
   )
 }
