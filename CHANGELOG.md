@@ -18,7 +18,7 @@
 
 **Commits:** `ee8ab9f` · `ad4d9c2` · `6a008a9`
 
-- **提醒系统** — 节点 / 采购 / 自定义提醒，支持原生 Notification + 应用内 toast 双通道。
+- **提醒系统** — 手动添加提醒（可选关联节点），到点优先触发原生 `Notification`；浏览器不支持 / 未授权时 fallback 到应用内 toast。
 - **Timeline / Gantt 视图** — 自研 SVG，按阶段分组显示，**支持拖拽节点条调整计划日期**。
 - **⌘K 全局搜索** — MiniSearch 索引节点 / 采购 / 提醒，键盘上下选择、回车跳转。
 - **本地目录镜像**（Chrome / Edge File System Access API）— 选择本机目录后，数据变更 2 秒内同步成 `筑迹/projects/<projectId>/data.json` + `images/`；每天生成 `筑迹/snapshots/<date>.zip` 完整快照，保留 30 天。非 FSA 浏览器降级为下载快照 Zip 按钮。
