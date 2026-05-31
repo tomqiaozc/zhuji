@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
 import { uid } from '@/lib/uid'
 import { fmtMoney } from '@/lib/format'
-import type { Project, Purchase } from '@/types'
+import type { Project, Purchase, Asset } from '@/types'
 
 interface Props {
   project: Project
@@ -37,6 +37,88 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
   const [remark, setRemark] = useState(editing?.remark ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingImages, setPendingImages] = useState<{ id: string; file: File }[]>([])
+  const [imageIds, setImageIds] = useState<string[]>(editing?.imageIds ?? [])
+  const blobUrlsRef = useRef<Map<string, string>>(new Map())
+
+  const existingPreviews = useLiveQuery(async () => {
+    if (!editing || imageIds.length === 0) return [] as Asset[]
+    const rows = await db.assets.bulkGet(imageIds)
+    return rows.filter((a): a is Asset => !!a)
+  }, [editing?.id, imageIds.join(',')]) ?? []
+
+  function urlFor(a: Asset): string {
+    const cached = blobUrlsRef.current.get(a.id)
+    if (cached) return cached
+    const url = URL.createObjectURL(a.blob)
+    blobUrlsRef.current.set(a.id, url)
+    return url
+  }
+
+  useEffect(() => {
+    return () => {
+      for (const url of blobUrlsRef.current.values()) URL.revokeObjectURL(url)
+      blobUrlsRef.current.clear()
+    }
+  }, [])
+
+  function pendingPreview(p: { id: string; file: File }) {
+    if (!blobUrlsRef.current.has(p.id)) {
+      blobUrlsRef.current.set(p.id, URL.createObjectURL(p.file))
+    }
+    return blobUrlsRef.current.get(p.id)!
+  }
+
+  async function onAddImages(fl: FileList | null) {
+    if (!fl) return
+    const next: { id: string; file: File }[] = []
+    const newIds: string[] = []
+    for (const f of Array.from(fl)) {
+      if (!f.type.startsWith('image/')) continue
+      const id = uid('ast')
+      if (editing) {
+        const asset: Asset = {
+          id,
+          projectId: project.id,
+          refType: 'purchase',
+          refId: editing.id,
+          fileName: f.name,
+          mimeType: f.type,
+          blob: f,
+          size: f.size,
+          createdAt: new Date().toISOString(),
+        }
+        await db.assets.add(asset)
+        newIds.push(id)
+      } else {
+        next.push({ id, file: f })
+        newIds.push(id)
+      }
+    }
+    if (next.length > 0) setPendingImages((p) => [...p, ...next])
+    if (newIds.length > 0) {
+      const merged = [...imageIds, ...newIds]
+      setImageIds(merged)
+      if (editing) await db.purchases.update(editing.id, { imageIds: merged })
+    }
+  }
+
+  async function onRemoveImage(id: string) {
+    const url = blobUrlsRef.current.get(id)
+    if (url) {
+      URL.revokeObjectURL(url)
+      blobUrlsRef.current.delete(id)
+    }
+    setPendingImages((p) => p.filter((x) => x.id !== id))
+    const next = imageIds.filter((x) => x !== id)
+    setImageIds(next)
+    try {
+      await db.assets.delete(id)
+    } catch {
+      // pending, never persisted
+    }
+    if (editing) await db.purchases.update(editing.id, { imageIds: next })
+  }
 
   useEffect(() => {
     if (!nodeId && nodes.length > 0) setNodeId(nodes[0].id)
@@ -84,11 +166,28 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
           purchaseDate,
           purchaseUrl: purchaseUrl.trim() || undefined,
           remark: remark.trim() || undefined,
+          imageIds,
         }
         await db.purchases.update(editing.id, patch)
       } else {
+        const purchaseId = uid('pur')
+        // Commit pending images now that we know the real purchase id.
+        for (const pend of pendingImages) {
+          const asset: Asset = {
+            id: pend.id,
+            projectId: project.id,
+            refType: 'purchase',
+            refId: purchaseId,
+            fileName: pend.file.name,
+            mimeType: pend.file.type,
+            blob: pend.file,
+            size: pend.file.size,
+            createdAt: new Date().toISOString(),
+          }
+          await db.assets.add(asset)
+        }
         const p: Purchase = {
-          id: uid('pur'),
+          id: purchaseId,
           projectId: project.id,
           nodeId,
           name: name.trim(),
@@ -101,7 +200,7 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
           totalPrice,
           purchaseDate,
           purchaseUrl: purchaseUrl.trim() || undefined,
-          imageIds: [],
+          imageIds,
           remark: remark.trim() || undefined,
           createdAt: new Date().toISOString(),
         }
@@ -236,6 +335,48 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
             onChange={(e) => setRemark(e.target.value)}
             placeholder="尺寸、安装注意事项…"
           />
+        </div>
+        <div className="form-row">
+          <label>实物图片</label>
+          <div className="image-thumb-grid">
+            {existingPreviews.map((a) => (
+              <div key={a.id} className="image-thumb">
+                <img src={urlFor(a)} alt={a.fileName} />
+                <button
+                  className="remove"
+                  onClick={() => onRemoveImage(a.id)}
+                  aria-label="移除图片"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            {pendingImages.map((p) => (
+              <div key={p.id} className="image-thumb">
+                <img src={pendingPreview(p)} alt={p.file.name} />
+                <button
+                  className="remove"
+                  onClick={() => onRemoveImage(p.id)}
+                  aria-label="移除图片"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <label className="image-add" title="添加图片">
+              + 加图
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  void onAddImages(e.target.files)
+                  e.target.value = ''
+                }}
+              />
+            </label>
+          </div>
         </div>
         <div className="drawer-actions">
           {error && (

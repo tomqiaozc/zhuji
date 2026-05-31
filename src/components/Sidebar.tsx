@@ -31,6 +31,7 @@ export function Sidebar({ mobileOpen, onNav }: Props) {
   }[] = [
     { key: 'dashboard', icon: '📊', label: '总览' },
     { key: 'node', icon: '📋', label: '节点工作台', badge: nodeCount },
+    { key: 'timeline', icon: '📅', label: '时间轴' },
     { key: 'purchase', icon: '🧾', label: '采购流水', badge: purchaseCount },
   ]
 

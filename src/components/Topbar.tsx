@@ -7,9 +7,19 @@ interface Props {
   onSwitch: (id: string) => void
   onNewProject: () => void
   onToggleSidebar: () => void
+  onOpenReminders: () => void
+  onOpenSearch: () => void
 }
 
-export function Topbar({ project, projects, onSwitch, onNewProject, onToggleSidebar }: Props) {
+export function Topbar({
+  project,
+  projects,
+  onSwitch,
+  onNewProject,
+  onToggleSidebar,
+  onOpenReminders,
+  onOpenSearch,
+}: Props) {
   const [menu, setMenu] = useState(false)
   return (
     <header className="topbar">
@@ -68,7 +78,20 @@ export function Topbar({ project, projects, onSwitch, onNewProject, onToggleSide
         )}
       </div>
       <div className="topbar-actions">
-        <button className="icon-btn" title="提醒" aria-label="提醒">
+        <button
+          className="icon-btn"
+          title="搜索 (⌘K)"
+          aria-label="搜索"
+          onClick={onOpenSearch}
+        >
+          🔍
+        </button>
+        <button
+          className="icon-btn"
+          title="提醒"
+          aria-label="提醒"
+          onClick={onOpenReminders}
+        >
           🔔
         </button>
       </div>

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
-type ViewName = 'dashboard' | 'node' | 'purchase' | 'settings'
+type ViewName = 'dashboard' | 'node' | 'purchase' | 'timeline' | 'settings'
 
 interface AppState {
   currentProjectId: string | null

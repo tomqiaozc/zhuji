@@ -3,24 +3,45 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/db'
 import { useApp } from '@/store/app'
 import { createProject } from '@/lib/projects'
+import { startReminderLoop } from '@/lib/reminders'
 import { Topbar } from '@/components/Topbar'
 import { Sidebar } from '@/components/Sidebar'
 import { Dashboard } from '@/views/Dashboard'
 import { NodeWorkspace } from '@/views/NodeWorkspace'
 import { Purchases } from '@/views/Purchases'
 import { Settings } from '@/views/Settings'
+import { Timeline } from '@/views/Timeline'
 import { ProjectCreateModal } from '@/components/ProjectCreateModal'
 import { PurchaseDrawer } from '@/components/PurchaseDrawer'
+import { ReminderPanel } from '@/components/ReminderPanel'
+import { SearchPalette } from '@/components/SearchPalette'
 
 export default function App() {
-  const { currentProjectId, setProject, view } = useApp()
+  const { currentProjectId, setProject, view, setActiveNode, setView } = useApp()
   const projects = useLiveQuery(() => db.projects.toArray(), [])
   const [showCreate, setShowCreate] = useState(false)
   const [drawer, setDrawer] = useState<{ open: boolean; nodeId?: string }>({ open: false })
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showReminders, setShowReminders] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
   const projectsLoaded = projects !== undefined
   const list = projects ?? []
   const autoOpenedRef = useRef(false)
+
+  useEffect(() => {
+    startReminderLoop()
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        if (currentProjectId) setShowSearch(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [currentProjectId])
 
   useEffect(() => {
     if (!projectsLoaded) return
@@ -63,6 +84,8 @@ export default function App() {
         onSwitch={(id) => setProject(id)}
         onNewProject={() => setShowCreate(true)}
         onToggleSidebar={() => setSidebarOpen((v) => !v)}
+        onOpenReminders={() => setShowReminders(true)}
+        onOpenSearch={() => current && setShowSearch(true)}
       />
       <div className="body">
         <Sidebar mobileOpen={sidebarOpen} onNav={() => setSidebarOpen(false)} />
@@ -85,6 +108,8 @@ export default function App() {
             />
           ) : view === 'purchase' ? (
             <Purchases project={current} onAddPurchase={() => setDrawer({ open: true })} />
+          ) : view === 'timeline' ? (
+            <Timeline project={current} />
           ) : (
             <Settings key={current.id} project={current} onNewProject={() => setShowCreate(true)} />
           )}
@@ -108,6 +133,21 @@ export default function App() {
           project={current}
           presetNodeId={drawer.nodeId}
           onClose={() => setDrawer({ open: false })}
+        />
+      )}
+
+      {showReminders && (
+        <ReminderPanel projectId={currentProjectId} onClose={() => setShowReminders(false)} />
+      )}
+
+      {showSearch && current && (
+        <SearchPalette
+          projectId={current.id}
+          onClose={() => setShowSearch(false)}
+          onJumpNode={(nodeId) => {
+            setActiveNode(nodeId)
+            setView('node')
+          }}
         />
       )}
     </div>
