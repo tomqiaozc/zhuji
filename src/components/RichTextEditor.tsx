@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { sanitizeHtml } from '@/lib/sanitize'
 
 interface Props {
   value: string
@@ -17,13 +18,14 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    if (el.innerHTML !== value) el.innerHTML = value
+    const safe = sanitizeHtml(value)
+    if (el.innerHTML !== safe) el.innerHTML = safe
   }, [value])
 
   function handleInput() {
     const el = ref.current
     if (!el) return
-    onChange(el.innerHTML)
+    onChange(sanitizeHtml(el.innerHTML))
   }
 
   function btn(label: string, cmd: string, arg?: string, title?: string) {

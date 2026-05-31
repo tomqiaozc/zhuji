@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import { db } from '@/db'
+import { sanitizeHtml } from '@/lib/sanitize'
 import type { Asset, DecorNode, Project, Purchase, Reminder } from '@/types'
 
 interface BackupManifest {
@@ -105,7 +106,9 @@ export async function importFullZip(file: File): Promise<{
         db.assets.clear(),
       ])
       await db.projects.bulkAdd(manifest.projects)
-      await db.nodes.bulkAdd(manifest.nodes)
+      await db.nodes.bulkAdd(
+        manifest.nodes.map((n) => ({ ...n, notes: sanitizeHtml(n.notes) })),
+      )
       await db.purchases.bulkAdd(manifest.purchases)
       await db.reminders.bulkAdd(manifest.reminders)
       await db.assets.bulkAdd(assets)

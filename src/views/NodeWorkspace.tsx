@@ -2,18 +2,20 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
+import { deletePurchase } from '@/lib/cascade'
 import { useApp } from '@/store/app'
 import { fmtMoney } from '@/lib/format'
 import { uid } from '@/lib/uid'
 import type { DecorNode, NodeStatus, Project } from '@/types'
 import { RichTextEditor } from '@/components/RichTextEditor'
+import { NodeImagesPanel } from '@/components/NodeImagesPanel'
 
 interface Props {
   project: Project
   onAddPurchase: (nodeId: string) => void
 }
 
-type TabKey = 'tips' | 'check' | 'purchase' | 'note'
+type TabKey = 'tips' | 'check' | 'purchase' | 'image' | 'note'
 
 const STATUS_LABEL: Record<NodeStatus, string> = {
   todo: '未开始',
@@ -191,6 +193,12 @@ function NodePanel({
           🧾 采购<span className="count">{purchases.length}</span>
         </button>
         <button
+          className={`tab ${tab === 'image' ? 'active' : ''}`}
+          onClick={() => setTab('image')}
+        >
+          🖼️ 图片
+        </button>
+        <button
           className={`tab ${tab === 'note' ? 'active' : ''}`}
           onClick={() => setTab('note')}
         >
@@ -254,7 +262,7 @@ function NodePanel({
                           className="icon-btn"
                           title="删除"
                           aria-label="删除"
-                          onClick={() => db.purchases.delete(p.id)}
+                          onClick={() => void deletePurchase(p.id)}
                         >
                           🗑️
                         </button>
@@ -274,6 +282,11 @@ function NodePanel({
             onChange={(html) => db.nodes.update(node.id, { notes: html })}
             placeholder="记录这个节点的备注、现场沟通要点、师傅联系方式…"
           />
+        </div>
+      )}
+      {tab === 'image' && (
+        <div className="tab-panel">
+          <NodeImagesPanel node={node} />
         </div>
       )}
     </div>

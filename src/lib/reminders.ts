@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import { db } from '@/db'
 import type { Reminder } from '@/types'
+import { addInAppReminder } from './reminderBus'
 
 export async function ensureNotificationPermission(): Promise<NotificationPermission> {
   if (!('Notification' in window)) return 'denied'
@@ -14,8 +15,8 @@ export async function ensureNotificationPermission(): Promise<NotificationPermis
   return Notification.permission
 }
 
-function fireNotification(r: Reminder) {
-  if (!('Notification' in window) || Notification.permission !== 'granted') return
+function tryNativeNotification(r: Reminder): boolean {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return false
   try {
     const n = new Notification('🔔 筑迹提醒', {
       body: r.title,
@@ -25,8 +26,9 @@ function fireNotification(r: Reminder) {
       window.focus()
       n.close()
     }
+    return true
   } catch {
-    // ignore
+    return false
   }
 }
 
@@ -55,10 +57,21 @@ export function startReminderLoop() {
       for (const r of all) {
         if (r.done) continue
         if (r.triggerAt > now) continue
-        if (fired.has(r.id + ':' + r.triggerAt)) continue
-        fired.add(r.id + ':' + r.triggerAt)
-        fireNotification(r)
-        await bumpRepeat(r)
+        const key = r.id + ':' + r.triggerAt
+        if (fired.has(key)) continue
+        fired.add(key)
+        const delivered = tryNativeNotification(r)
+        if (delivered) {
+          // OS notification surfaced → safe to advance.
+          await bumpRepeat(r)
+        } else {
+          // No permission or platform failure — surface in-app and wait for the
+          // user to dismiss before advancing. The reminder stays in its current
+          // state (not done, triggerAt unchanged) until dismissal.
+          addInAppReminder(r, async () => {
+            await bumpRepeat(r)
+          })
+        }
       }
     } catch {
       // swallow — keep loop alive

@@ -16,6 +16,7 @@ import { ProjectCreateModal } from '@/components/ProjectCreateModal'
 import { PurchaseDrawer } from '@/components/PurchaseDrawer'
 import { ReminderPanel } from '@/components/ReminderPanel'
 import { SearchPalette } from '@/components/SearchPalette'
+import { ReminderToastHost } from '@/components/ReminderToastHost'
 
 export default function App() {
   const { currentProjectId, setProject, view, setActiveNode, setView } = useApp()
@@ -153,6 +154,8 @@ export default function App() {
           }}
         />
       )}
+
+      <ReminderToastHost />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import * as XLSX from 'xlsx'
 import { db } from '@/db'
+import { deletePurchase } from '@/lib/cascade'
 import { fmtMoney } from '@/lib/format'
 import type { Project, Purchase } from '@/types'
 import { PurchaseDrawer } from '@/components/PurchaseDrawer'
@@ -221,7 +222,7 @@ export function Purchases({ project, onAddPurchase }: Props) {
                         title="删除"
                         aria-label="删除"
                         onClick={() => {
-                          if (confirm('删除这笔采购？')) db.purchases.delete(p.id)
+                          if (confirm('删除这笔采购？')) void deletePurchase(p.id)
                         }}
                       >
                         🗑️

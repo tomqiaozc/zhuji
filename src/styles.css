@@ -1349,3 +1349,55 @@ textarea {
 .rt-editor ol {
   padding-left: 24px;
 }
+
+/* ---------- Reminder toast ---------- */
+.reminder-toast-host {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 320px;
+}
+.reminder-toast {
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-left: 4px solid var(--primary);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 12px 14px;
+}
+.reminder-toast-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-mute);
+}
+.reminder-toast-head .ttl {
+  font-weight: 600;
+  color: var(--text);
+}
+.reminder-toast-head .time {
+  margin-left: auto;
+}
+.reminder-toast-body {
+  margin: 6px 0 10px;
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.45;
+  word-break: break-word;
+}
+.reminder-toast-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---------- Node images ---------- */
+.node-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+}
