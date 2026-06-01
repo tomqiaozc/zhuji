@@ -40,14 +40,6 @@ import type { ChecklistItem, DecorNode, Project, Purchase, Reminder } from '@/ty
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
-async function loadNodeWithChecklist(nodeOut: NodeOut): Promise<DecorNode> {
-  const items = await api.get<ChecklistItemOut[]>(`/api/nodes/${nodeOut.id}/checklist`)
-  return nodeFromWire(
-    nodeOut,
-    items.map(checklistFromWire),
-  )
-}
-
 async function cacheNode(node: DecorNode): Promise<void> {
   await db.nodes.put(node)
 }
@@ -84,37 +76,43 @@ export async function hydrateProjectList(): Promise<Project[]> {
 
 /**
  * Pull a single project's nodes / checklists / purchases / reminders
- * and replace the matching local rows. Other projects' caches are left
- * intact.
+ * via the bulk snapshot endpoint and replace the matching local rows.
+ *
+ * Before M6 perf fix this fired 3 list calls + 1 GET per node for the
+ * checklist — 65 round-trips for the 62-node template project. Now: 1.
  */
 export async function hydrateProject(projectId: string): Promise<void> {
-  const [nodesOut, purchasesOut, remindersOut] = await Promise.all([
-    api.get<NodeOut[]>(`/api/projects/${projectId}/nodes`),
-    api.get<PurchaseOut[]>(`/api/projects/${projectId}/purchases`),
-    api.get<ReminderOut[]>(`/api/projects/${projectId}/reminders`),
-  ])
-
-  // Hydrate checklists in parallel batches to keep this responsive on
-  // the demo project (62 nodes → 62 requests).
-  const nodes: DecorNode[] = []
-  const CONCURRENCY = 8
-  for (let i = 0; i < nodesOut.length; i += CONCURRENCY) {
-    const slice = nodesOut.slice(i, i + CONCURRENCY)
-    const hydrated = await Promise.all(slice.map(loadNodeWithChecklist))
-    nodes.push(...hydrated)
+  interface SnapshotOut {
+    project: ProjectOut
+    nodes: Array<NodeOut & { checklist: ChecklistItemOut[] }>
+    purchases: PurchaseOut[]
+    reminders: ReminderOut[]
   }
 
-  const purchases = purchasesOut.map(purchaseFromWire)
-  const reminders = remindersOut.map(reminderFromWire)
+  const snap = await api.get<SnapshotOut>(`/api/projects/${projectId}/snapshot`)
+  const project = projectFromWire(snap.project)
+  const nodes: DecorNode[] = snap.nodes.map((n) =>
+    nodeFromWire(n, n.checklist.map(checklistFromWire)),
+  )
+  const purchases = snap.purchases.map(purchaseFromWire)
+  const reminders = snap.reminders.map(reminderFromWire)
 
-  await db.transaction('rw', [db.nodes, db.purchases, db.reminders], async () => {
-    await db.nodes.where('projectId').equals(projectId).delete()
-    await db.purchases.where('projectId').equals(projectId).delete()
-    await db.reminders.where('projectId').equals(projectId).delete()
-    if (nodes.length) await db.nodes.bulkPut(nodes)
-    if (purchases.length) await db.purchases.bulkPut(purchases)
-    if (reminders.length) await db.reminders.bulkPut(reminders)
-  })
+  await db.transaction(
+    'rw',
+    [db.projects, db.nodes, db.purchases, db.reminders],
+    async () => {
+      // Keep `projects` in sync too — the snapshot includes the latest
+      // project row, which may have drifted vs. what `hydrateProjectList`
+      // last cached (e.g. another device renamed it).
+      await db.projects.put(project)
+      await db.nodes.where('projectId').equals(projectId).delete()
+      await db.purchases.where('projectId').equals(projectId).delete()
+      await db.reminders.where('projectId').equals(projectId).delete()
+      if (nodes.length) await db.nodes.bulkPut(nodes)
+      if (purchases.length) await db.purchases.bulkPut(purchases)
+      if (reminders.length) await db.reminders.bulkPut(reminders)
+    },
+  )
 }
 
 /** Pull the project list AND all per-project data. Used after login. */
@@ -217,8 +215,15 @@ export async function updateNode(
   if (Object.keys(fieldPatch).length > 0) {
     const out = await api.patch<NodeOut>(`/api/nodes/${nodeId}`, fieldPatch)
     updated = nodeFromWire(out, existing?.checklist ?? [])
+  } else if (existing) {
+    updated = existing
   } else {
-    updated = existing ?? (await loadNodeWithChecklist(await api.get<NodeOut>(`/api/nodes/${nodeId}`)))
+    // Cold start with no field patch — pull the node + its checklist.
+    // Only hit in the corner case where another tab evicted the cache
+    // mid-mutation; ordinary use never reaches here.
+    const nodeOut = await api.get<NodeOut>(`/api/nodes/${nodeId}`)
+    const items = await api.get<ChecklistItemOut[]>(`/api/nodes/${nodeId}/checklist`)
+    updated = nodeFromWire(nodeOut, items.map(checklistFromWire))
   }
   if (patch.checklist !== undefined) {
     updated.checklist = await replaceChecklist(nodeId, patch.checklist)

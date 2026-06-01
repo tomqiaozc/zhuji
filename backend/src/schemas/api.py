@@ -162,6 +162,16 @@ class ChecklistItemOut(_ORM):
     order: int
 
 
+class NodeWithChecklistOut(NodeOut):
+    """NodeOut + the node's checklist items inline.
+
+    Used by the snapshot endpoint so the frontend doesn't have to fan
+    out one GET per node to hydrate checklists.
+    """
+
+    checklist: list[ChecklistItemOut] = []
+
+
 # ── Purchase ──────────────────────────────────────────────────────
 
 
@@ -305,6 +315,21 @@ class ProjectInitFromTemplateOut(BaseModel):
     project_id: UUID
     node_count: int
     checklist_count: int
+
+
+# ── Project snapshot (bulk read) ─────────────────────────────────
+
+
+class ProjectSnapshotOut(BaseModel):
+    """Everything the frontend needs to fully rehydrate one project in
+    a single round-trip. Replaces the M5-era N+1 hydration that issued
+    one GET per node just to fetch checklists.
+    """
+
+    project: ProjectOut
+    nodes: list[NodeWithChecklistOut]
+    purchases: list[PurchaseOut]
+    reminders: list[ReminderOut]
 
 
 TokenResponse.model_rebuild()

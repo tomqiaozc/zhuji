@@ -11,13 +11,19 @@ from sqlalchemy import func, select
 from src.api._ownership import get_user_project
 from src.auth.dependencies import get_current_user
 from src.db.session import get_db
-from src.models.base import ChecklistItem, Node, Project, User
+from src.models.base import ChecklistItem, Node, Project, Purchase, Reminder, User
 from src.schemas.api import (
+    ChecklistItemOut,
+    NodeOut,
+    NodeWithChecklistOut,
     ProjectIn,
     ProjectInitFromTemplateIn,
     ProjectInitFromTemplateOut,
     ProjectOut,
+    ProjectSnapshotOut,
     ProjectUpdate,
+    PurchaseOut,
+    ReminderOut,
 )
 
 if TYPE_CHECKING:
@@ -148,4 +154,61 @@ async def init_from_template(
         project_id=project.id,
         node_count=node_count,
         checklist_count=checklist_count,
+    )
+
+
+@router.get("/{project_id}/snapshot", response_model=ProjectSnapshotOut)
+async def get_project_snapshot(
+    project_id: UUID,
+    user: User = Depends(get_current_user),
+    db: "AsyncSession" = Depends(get_db),
+) -> ProjectSnapshotOut:
+    """One-shot read of every row the frontend needs to render a project.
+
+    Returns project + nodes (with inline checklist) + purchases +
+    reminders. Replaces the M5-era N+1 hydration that fetched
+    checklists per-node (62 round-trips for the demo / template
+    project). Four SELECTs total, none of them per-node.
+
+    NB: a single AsyncSession can only run one query at a time, so the
+    SELECTs are issued sequentially — but they're cheap and run on the
+    same connection, so the total still dwarfs the old N+1 path.
+    """
+    project = await get_user_project(db, user, project_id)
+
+    nodes_res = await db.execute(select(Node).where(Node.project_id == project.id).order_by(Node.order))
+    nodes = list(nodes_res.scalars().all())
+
+    # Pull every checklist item for the project's nodes in one query,
+    # then group locally — replaces the per-node round-trip.
+    checklist_by_node: dict = {n.id: [] for n in nodes}
+    if nodes:
+        cl_res = await db.execute(
+            select(ChecklistItem)
+            .where(ChecklistItem.node_id.in_([n.id for n in nodes]))
+            .order_by(ChecklistItem.node_id, ChecklistItem.order)
+        )
+        for item in cl_res.scalars().all():
+            checklist_by_node[item.node_id].append(ChecklistItemOut.model_validate(item))
+
+    purchases_res = await db.execute(
+        select(Purchase)
+        .where(Purchase.project_id == project.id)
+        .order_by(Purchase.purchase_date.desc().nullslast(), Purchase.created_at.desc())
+    )
+    reminders_res = await db.execute(
+        select(Reminder).where(Reminder.project_id == project.id).order_by(Reminder.trigger_at)
+    )
+
+    return ProjectSnapshotOut(
+        project=ProjectOut.model_validate(project),
+        nodes=[
+            NodeWithChecklistOut(
+                **NodeOut.model_validate(n).model_dump(),
+                checklist=checklist_by_node.get(n.id, []),
+            )
+            for n in nodes
+        ],
+        purchases=[PurchaseOut.model_validate(p) for p in purchases_res.scalars().all()],
+        reminders=[ReminderOut.model_validate(r) for r in reminders_res.scalars().all()],
     )
