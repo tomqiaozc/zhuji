@@ -93,4 +93,3 @@ def decode_asset_viewer_token(token: str) -> UUID:
         return UUID(sub)
     except ValueError as exc:
         raise JWTError("malformed sub claim") from exc
-
