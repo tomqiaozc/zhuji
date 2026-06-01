@@ -5,14 +5,20 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 
 from src.api._ownership import get_user_project
 from src.auth.dependencies import get_current_user
 from src.db.session import get_db
-from src.models.base import Project, User
-from src.schemas.api import ProjectIn, ProjectOut, ProjectUpdate
+from src.models.base import ChecklistItem, Node, Project, User
+from src.schemas.api import (
+    ProjectIn,
+    ProjectInitFromTemplateIn,
+    ProjectInitFromTemplateOut,
+    ProjectOut,
+    ProjectUpdate,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,3 +83,69 @@ async def delete_project(
     project = await get_user_project(db, user, project_id)
     await db.delete(project)
     await db.commit()
+
+
+@router.post(
+    "/{project_id}/init-from-template",
+    response_model=ProjectInitFromTemplateOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def init_from_template(
+    project_id: UUID,
+    payload: ProjectInitFromTemplateIn,
+    user: User = Depends(get_current_user),
+    db: "AsyncSession" = Depends(get_db),
+) -> ProjectInitFromTemplateOut:
+    """Bulk-insert every node + checklist item for a fresh project.
+
+    Replaces the M5 frontend loop that fired ~600 sequential HTTP
+    requests per new project. Runs in a single transaction; refuses
+    (409) if the project already has nodes so a retry can't double the
+    schema and so callers can't accidentally clobber a populated
+    project (e.g. the demo).
+    """
+    project = await get_user_project(db, user, project_id)
+
+    existing = await db.execute(select(func.count()).select_from(Node).where(Node.project_id == project.id))
+    if (existing.scalar() or 0) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="项目已包含节点，请勿重复初始化",
+        )
+
+    node_count = 0
+    checklist_count = 0
+    # `order` is sequential across stages in the order the client sends
+    # them, so the frontend doesn't need to compute it.
+    for i, nt in enumerate(payload.nodes):
+        node = Node(
+            project_id=project.id,
+            stage=nt.stage,
+            name=nt.name,
+            order=i,
+            status=nt.status,
+            tips=nt.tips,
+            tips_modified=nt.tips_modified,
+            notes=nt.notes,
+        )
+        db.add(node)
+        await db.flush()  # need node.id for the checklist FKs
+        for j, c in enumerate(nt.checklist):
+            db.add(
+                ChecklistItem(
+                    node_id=node.id,
+                    text=c.text,
+                    done=c.done,
+                    note=c.note,
+                    order=j,
+                )
+            )
+            checklist_count += 1
+        node_count += 1
+
+    await db.commit()
+    return ProjectInitFromTemplateOut(
+        project_id=project.id,
+        node_count=node_count,
+        checklist_count=checklist_count,
+    )

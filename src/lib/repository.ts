@@ -447,3 +447,56 @@ export async function uploadAsset(
 export async function deleteAsset(assetId: string): Promise<void> {
   await api.delete<void>(`/api/assets/${assetId}`)
 }
+
+// ─── Bulk project init from template ─────────────────────────────
+
+export interface InitTemplateNode {
+  stage: string
+  name: string
+  status?: string
+  tips?: string
+  tipsModified?: boolean
+  notes?: string
+  checklist: Array<{ text: string; done?: boolean; note?: string | null }>
+}
+
+interface InitTemplateNodeWire {
+  stage: string
+  name: string
+  status?: string
+  tips?: string
+  tips_modified?: boolean
+  notes?: string
+  checklist: Array<{ text: string; done?: boolean; note?: string | null }>
+}
+
+interface InitResponseOut {
+  project_id: string
+  node_count: number
+  checklist_count: number
+}
+
+/**
+ * Replaces the M5-era ~600-request loop in `src/lib/projects.ts`. One
+ * round-trip seeds every node + checklist item in a single backend
+ * transaction; the cache is then re-hydrated by the caller.
+ */
+export async function initProjectFromTemplate(
+  projectId: string,
+  nodes: InitTemplateNode[],
+): Promise<{ nodeCount: number; checklistCount: number }> {
+  const wire: InitTemplateNodeWire[] = nodes.map((n) => ({
+    stage: n.stage,
+    name: n.name,
+    status: n.status,
+    tips: n.tips,
+    tips_modified: n.tipsModified,
+    notes: n.notes,
+    checklist: n.checklist,
+  }))
+  const out = await api.post<InitResponseOut>(
+    `/api/projects/${projectId}/init-from-template`,
+    { nodes: wire },
+  )
+  return { nodeCount: out.node_count, checklistCount: out.checklist_count }
+}

@@ -271,4 +271,40 @@ class AssetOut(_ORM):
     created_at: datetime
 
 
+# ── Project bulk init from template ──────────────────────────────
+
+
+class TemplateChecklistItemIn(BaseModel):
+    text: str
+    done: bool = False
+    note: str | None = None
+
+
+class TemplateNodeIn(BaseModel):
+    """One node in the project-creation template.
+
+    `order` is server-assigned (sequential across stages in the order the
+    client sends), so the client doesn't have to compute it. Everything
+    else mirrors NodeIn.
+    """
+
+    stage: str
+    name: str
+    status: str = "todo"
+    tips: str = ""
+    tips_modified: bool = False
+    notes: str = ""
+    checklist: list[TemplateChecklistItemIn] = []
+
+
+class ProjectInitFromTemplateIn(BaseModel):
+    nodes: list[TemplateNodeIn]
+
+
+class ProjectInitFromTemplateOut(BaseModel):
+    project_id: UUID
+    node_count: int
+    checklist_count: int
+
+
 TokenResponse.model_rebuild()
