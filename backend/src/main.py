@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.assets import router as assets_router
 from src.api.auth import router as auth_router
 from src.api.demo import router as demo_router
 from src.api.nodes import router as nodes_router
@@ -39,22 +40,33 @@ app.include_router(projects_router)
 app.include_router(nodes_router)
 app.include_router(purchases_router)
 app.include_router(reminders_router)
+app.include_router(assets_router)
 
 
 @app.get("/api/health/liveness")
 async def liveness() -> dict:
+    """Lightweight liveness — proves the worker is up, no dependencies."""
     return {"status": "ok"}
 
 
 @app.get("/api/health")
-async def health_check(db: AsyncSession = Depends(get_db)) -> dict:  # noqa: B008
+async def health_check(
+    response: Response,
+    db: AsyncSession = Depends(get_db),  # noqa: B008
+) -> dict:
+    """Readiness probe — returns 503 when the DB connection is broken.
+
+    Use this as the smoke target post-deploy so a container that came up
+    with broken migrations / a dead DB doesn't pretend to be healthy.
+    """
     try:
         await db.execute(text("SELECT 1"))
-        db_status = "ok"
-    except Exception:
-        db_status = "error"
-    return {
-        "status": "ok" if db_status == "ok" else "degraded",
-        "db": db_status,
-        "version": "0.1.0",
-    }
+        return {"status": "ok", "db": "ok", "version": "0.1.0"}
+    except Exception as exc:
+        response.status_code = 503
+        return {
+            "status": "degraded",
+            "db": "error",
+            "version": "0.1.0",
+            "error": str(exc),
+        }

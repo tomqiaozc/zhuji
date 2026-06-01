@@ -37,6 +37,19 @@ export function configureApi(opts: {
   onUnauthorized = opts.onUnauthorized
 }
 
+/**
+ * Build an absolute URL for an endpoint that can't carry an
+ * Authorization header — e.g. ``<img src>``. Appends the current JWT
+ * as ``?token=...``. Returns an empty string if the user isn't logged
+ * in, which is a defensive guard for callers that forget to check.
+ */
+export function authedUrl(path: string): string {
+  const token = getToken()
+  if (!token) return ''
+  const sep = path.includes('?') ? '&' : '?'
+  return `${BASE}${path}${sep}token=${encodeURIComponent(token)}`
+}
+
 async function request<T>(
   method: string,
   path: string,
@@ -91,4 +104,37 @@ export const api = {
   post: <T>(p: string, body?: unknown) => request<T>('POST', p, body),
   patch: <T>(p: string, body?: unknown) => request<T>('PATCH', p, body),
   delete: <T = void>(p: string) => request<T>('DELETE', p),
+  /** Multipart upload — lets `fetch` set the Content-Type with the
+   *  generated MIME boundary. Token + 401 handling still apply. */
+  upload: async <T>(path: string, form: FormData): Promise<T> => {
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    const token = getToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const res = await fetch(BASE + path, {
+      method: 'POST',
+      headers,
+      body: form,
+    })
+    if (res.status === 401) onUnauthorized()
+    if (res.status === 204) return undefined as unknown as T
+    const text = await res.text()
+    let parsed: unknown = null
+    if (text) {
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        parsed = text
+      }
+    }
+    if (!res.ok) {
+      const detail =
+        (parsed && typeof parsed === 'object' && 'detail' in parsed
+          ? String((parsed as { detail: unknown }).detail)
+          : '') ||
+        (typeof parsed === 'string' ? parsed : '') ||
+        `HTTP ${res.status}`
+      throw new ApiError(res.status, detail, parsed)
+    }
+    return parsed as T
+  },
 }

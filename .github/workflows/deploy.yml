@@ -1,0 +1,147 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ghcr.io/tomqiaozc/zhuji/backend
+  FRONTEND_IMAGE_NAME: ghcr.io/tomqiaozc/zhuji/frontend
+
+jobs:
+  # ── Build backend image ────────────────────────────────────
+  build-backend:
+    name: Build backend image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.BACKEND_IMAGE_NAME }}:latest
+          cache-from: type=gha,scope=zhuji-backend
+          cache-to: type=gha,scope=zhuji-backend,mode=max
+
+  # ── Build frontend image ──────────────────────────────────
+  build-frontend:
+    name: Build frontend image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.FRONTEND_IMAGE_NAME }}:latest
+          cache-from: type=gha,scope=zhuji-frontend
+          cache-to: type=gha,scope=zhuji-frontend,mode=max
+
+  # ── Deploy to Azure ───────────────────────────────────────
+  deploy:
+    name: Deploy to Azure App Service
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # Make sure App Service didn't keep an old startup command from
+      # a previous misconfiguration. Mirrors what rewind does.
+      - name: Clear stale startup command (backend)
+        uses: azure/CLI@v2
+        with:
+          inlineScript: |
+            az resource update \
+              --ids "/subscriptions/$(az account show --query id -o tsv)/resourceGroups/${{ vars.RESOURCE_GROUP }}/providers/Microsoft.Web/sites/${{ vars.BACKEND_APP_NAME }}/config/web" \
+              --set properties.appCommandLine="" \
+              --output none
+
+      - name: Deploy backend image
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.BACKEND_APP_NAME }}
+          images: ${{ env.BACKEND_IMAGE_NAME }}:${{ github.sha }}
+
+      - name: Deploy frontend image
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.FRONTEND_APP_NAME }}
+          images: ${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
+
+      # The backend container's entrypoint runs `alembic upgrade head`
+      # before gunicorn starts and EXITS NON-ZERO on failure, so a
+      # broken migration prevents the container from ever serving
+      # traffic (the readiness probe below catches the rest).
+
+      - name: Smoke test backend
+        # `/api/health` checks the DB connection and returns 503 on
+        # failure, so a green check here proves Postgres is reachable
+        # AND the schema is at head — not just "the worker is running".
+        run: |
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://${{ vars.BACKEND_APP_NAME }}.azurewebsites.net/api/health")
+            if [ "$STATUS" = "200" ]; then
+              echo "Backend health OK"
+              break
+            fi
+            echo "[$i/12] backend status=$STATUS, retrying in 30s..."
+            sleep 30
+          done
+          if [ "$STATUS" != "200" ]; then
+            echo "Backend health check failed (DB unreachable or migrations broken)."
+            curl -s "https://${{ vars.BACKEND_APP_NAME }}.azurewebsites.net/api/health" || true
+            exit 1
+          fi
+
+      - name: Smoke test frontend
+        run: |
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://${{ vars.FRONTEND_APP_NAME }}.azurewebsites.net/")
+            if [ "$STATUS" = "200" ]; then
+              echo "Frontend health OK"
+              exit 0
+            fi
+            echo "[$i/12] frontend status=$STATUS, retrying in 30s..."
+            sleep 30
+          done
+          echo "Frontend health check failed."
+          exit 1

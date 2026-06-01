@@ -21,3 +21,7 @@ backend/htmlcov
 __pycache__
 *.pyc
 *.egg-info
+
+# Bicep build artifacts
+infra/main.json
+infra/modules/*.json

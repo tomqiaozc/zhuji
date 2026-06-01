@@ -15,7 +15,7 @@
  */
 
 import { db } from '@/db'
-import { api } from '@/lib/api'
+import { api, authedUrl } from '@/lib/api'
 import {
   type ChecklistItemOut,
   type LoadDemoResponse,
@@ -379,4 +379,71 @@ export async function loadDemoProject(): Promise<LoadDemoResult> {
     purchaseCount: out.stats.purchase_count,
     totalSpent: out.stats.total_spent,
   }
+}
+
+// ─── Assets (M6: Azure Blob Storage) ─────────────────────────────
+
+export interface AssetSummary {
+  id: string
+  projectId: string
+  refType: 'node' | 'purchase'
+  refId: string
+  /** Auth-protected proxy URL — works in `<img src>` because it embeds
+   *  the JWT as a query parameter. Built from the asset id, NOT the raw
+   *  blob URL (the container is private). */
+  contentUrl: string
+  fileName: string
+  mimeType: string
+  size: number
+  createdAt: string
+}
+
+interface AssetOut {
+  id: string
+  project_id: string
+  ref_type: string
+  ref_id: string
+  // NB: no `blob_url` — the raw Azure URL is private and never leaves
+  // the backend. We build the auth-protected proxy URL from `id`.
+  file_name: string
+  mime_type: string
+  size: number
+  created_at: string
+}
+
+function assetFromWire(a: AssetOut): AssetSummary {
+  return {
+    id: a.id,
+    projectId: a.project_id,
+    refType: a.ref_type as 'node' | 'purchase',
+    refId: a.ref_id,
+    contentUrl: authedUrl(`/api/assets/${a.id}/content`),
+    fileName: a.file_name,
+    mimeType: a.mime_type,
+    size: a.size,
+    createdAt: a.created_at,
+  }
+}
+
+export async function listAssets(projectId: string): Promise<AssetSummary[]> {
+  const rows = await api.get<AssetOut[]>(`/api/projects/${projectId}/assets`)
+  return rows.map(assetFromWire)
+}
+
+export async function uploadAsset(
+  projectId: string,
+  refType: 'node' | 'purchase',
+  refId: string,
+  file: File,
+): Promise<AssetSummary> {
+  const form = new FormData()
+  form.set('ref_type', refType)
+  form.set('ref_id', refId)
+  form.set('file', file)
+  const out = await api.upload<AssetOut>(`/api/projects/${projectId}/assets`, form)
+  return assetFromWire(out)
+}
+
+export async function deleteAsset(assetId: string): Promise<void> {
+  await api.delete<void>(`/api/assets/${assetId}`)
 }
