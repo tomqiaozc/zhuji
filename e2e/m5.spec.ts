@@ -201,3 +201,69 @@ test('CR2: cross-account switch does not leak A’s currentProjectId to B', asyn
   // And the Topbar reflects B, not A.
   await expect(page.getByTestId('topbar-user')).toContainText(bob)
 })
+
+test('RichTextEditor restores existing notes on remount and debounces commits', async ({
+  page,
+}) => {
+  // Regression for code-review feedback: the editor's initial mount
+  // must seed the contentEditable div with `value`, otherwise switching
+  // to a node with existing notes shows a blank editor and a stray
+  // blur would clobber the saved content. Also asserts the debounce —
+  // typing N characters should not result in N PATCH requests.
+  const username = uniqueUsername()
+  await registerNewUser(page, username)
+  await page.getByTestId('empty-hero-demo').click()
+  await expect(page.getByText('示范家 · 89㎡', { exact: false }).first()).toBeVisible({
+    timeout: 20_000,
+  })
+  await page.getByRole('button', { name: /节点工作台/ }).click()
+  await page.locator('.node-link').first().click()
+  await page.locator('button.tab', { hasText: '备注' }).dispatchEvent('click')
+
+  // The seed data populates this node with a non-empty note. The bug
+  // we're guarding against would render the editor blank on first
+  // mount; this assertion fails immediately under the regression.
+  const editor = page.locator('.rt-editor')
+  await expect(editor).not.toBeEmpty({ timeout: 10_000 })
+  const initialText = (await editor.textContent()) ?? ''
+  expect(initialText.length).toBeGreaterThan(0)
+
+  // Type some extra content + blur via tab switch — the new content
+  // must be appended to (not replace) the seeded note, AND the seeded
+  // note must still be there when we remount the tab.
+  const suffix = '附加备注XYZ'
+  await editor.click()
+  await page.keyboard.press('End')
+  await page.keyboard.type(suffix)
+  await page.locator('button.tab', { hasText: '避坑清单' }).click()
+  await page.locator('button.tab', { hasText: '备注' }).click()
+  await expect(editor).toContainText(initialText, { timeout: 5_000 })
+  await expect(editor).toContainText(suffix, { timeout: 5_000 })
+
+  // Switch to a different node and back — the seeded + appended content
+  // must reappear (this is the path that broke under the original ref
+  // initialisation; the second mount used to render empty).
+  await page.locator('.node-link').nth(1).click()
+  await page.locator('button.tab', { hasText: '备注' }).click()
+  await page.locator('.node-link').first().click()
+  await page.locator('button.tab', { hasText: '备注' }).click()
+  await expect(editor).toContainText(initialText, { timeout: 5_000 })
+  await expect(editor).toContainText(suffix, { timeout: 5_000 })
+
+  // Debounce check: count PATCH /api/nodes/:id requests while typing
+  // 12 characters quickly. Without debounce that would be 12; with the
+  // 300ms debounce + onBlur commit it should be at most 2 (the trailing
+  // debounce + the blur).
+  const patches: string[] = []
+  page.on('request', (req) => {
+    if (req.method() === 'PATCH' && /\/api\/nodes\/[^/]+$/.test(req.url())) {
+      patches.push(req.url())
+    }
+  })
+  await editor.click()
+  await page.keyboard.press('End')
+  await page.keyboard.type('abcdefghijkl', { delay: 20 })
+  await page.locator('button.tab', { hasText: '避坑清单' }).click()
+  await page.waitForTimeout(500)
+  expect(patches.length, `expected ≤ 2 PATCHes, got ${patches.length}`).toBeLessThanOrEqual(2)
+})

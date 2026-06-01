@@ -20,8 +20,10 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
   // compare against this to skip no-op writes (every keystroke would
   // otherwise fire onChange) AND to detect when an incoming `value` prop
   // is just the echo of what we just sent — that lets us avoid clobbering
-  // the caret while the user is mid-edit.
-  const lastCommittedRef = useRef<string>(sanitizeHtml(value))
+  // the caret while the user is mid-edit. Initialised to `null` so the
+  // first sync effect ALWAYS seeds the DOM with the incoming value, even
+  // when that value happens to equal an empty editor's innerHTML.
+  const lastCommittedRef = useRef<string | null>(null)
   const timerRef = useRef<number | null>(null)
 
   // Sync external value changes into the DOM, but not when the change is
@@ -30,7 +32,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
     const el = ref.current
     if (!el) return
     const safe = sanitizeHtml(value)
-    if (safe === lastCommittedRef.current) return
+    if (lastCommittedRef.current !== null && safe === lastCommittedRef.current) return
     if (el.innerHTML !== safe) el.innerHTML = safe
     lastCommittedRef.current = safe
   }, [value])
