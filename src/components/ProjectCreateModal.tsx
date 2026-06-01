@@ -57,6 +57,7 @@ export function ProjectCreateModal({ allowCancel, onSubmit, onDemoLoaded, onClos
           <label>项目名称 *</label>
           <input
             type="text"
+            data-testid="project-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="如：朝阳保利和光屿湖"
@@ -134,7 +135,12 @@ export function ProjectCreateModal({ allowCancel, onSubmit, onDemoLoaded, onClos
               Load Demo Project
             </button>
           )}
-          <button className="btn btn-primary" onClick={submit} disabled={!name.trim() || busy}>
+          <button
+            className="btn btn-primary"
+            data-testid="project-create-submit"
+            onClick={submit}
+            disabled={!name.trim() || busy}
+          >
             {busy ? '创建中…' : '创建项目'}
           </button>
         </div>

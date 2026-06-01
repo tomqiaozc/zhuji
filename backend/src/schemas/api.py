@@ -162,6 +162,16 @@ class ChecklistItemOut(_ORM):
     order: int
 
 
+class NodeWithChecklistOut(NodeOut):
+    """NodeOut + the node's checklist items inline.
+
+    Used by the snapshot endpoint so the frontend doesn't have to fan
+    out one GET per node to hydrate checklists.
+    """
+
+    checklist: list[ChecklistItemOut] = []
+
+
 # ── Purchase ──────────────────────────────────────────────────────
 
 
@@ -269,6 +279,57 @@ class AssetOut(_ORM):
     mime_type: str
     size: int
     created_at: datetime
+
+
+# ── Project bulk init from template ──────────────────────────────
+
+
+class TemplateChecklistItemIn(BaseModel):
+    text: str
+    done: bool = False
+    note: str | None = None
+
+
+class TemplateNodeIn(BaseModel):
+    """One node in the project-creation template.
+
+    `order` is server-assigned (sequential across stages in the order the
+    client sends), so the client doesn't have to compute it. Everything
+    else mirrors NodeIn.
+    """
+
+    stage: str
+    name: str
+    status: str = "todo"
+    tips: str = ""
+    tips_modified: bool = False
+    notes: str = ""
+    checklist: list[TemplateChecklistItemIn] = []
+
+
+class ProjectInitFromTemplateIn(BaseModel):
+    nodes: list[TemplateNodeIn]
+
+
+class ProjectInitFromTemplateOut(BaseModel):
+    project_id: UUID
+    node_count: int
+    checklist_count: int
+
+
+# ── Project snapshot (bulk read) ─────────────────────────────────
+
+
+class ProjectSnapshotOut(BaseModel):
+    """Everything the frontend needs to fully rehydrate one project in
+    a single round-trip. Replaces the M5-era N+1 hydration that issued
+    one GET per node just to fetch checklists.
+    """
+
+    project: ProjectOut
+    nodes: list[NodeWithChecklistOut]
+    purchases: list[PurchaseOut]
+    reminders: list[ReminderOut]
 
 
 TokenResponse.model_rebuild()

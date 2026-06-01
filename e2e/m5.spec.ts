@@ -103,16 +103,75 @@ test('wrong password is rejected', async ({ page }) => {
 })
 
 /**
- * Regression guard for CR2: when user A logs out and user B logs in on
- * the same browser, B must NOT inherit A's persisted currentProjectId.
- *
- * Before the fix, useApp's `currentProjectId` survived in localStorage
- * across the logout, so B's first render would call
- *   useLiveQuery(() => db.projects.where('id').equals(<A's id>))
- * which never resolves a row for B → the UI stays on "loading…".
- *
- * The expected behavior: B lands on EmptyHero (no projects yet).
+ * Regression for the project-creation perf bug: M5 originally fanned
+ * out ~600 sequential HTTP requests per new project (62 nodes × ~9
+ * checklist items each), which took ~5 minutes from the browser. The
+ * fix replaces that with a single bulk init endpoint, so a fresh
+ * project should now take well under 5 seconds even with the entire
+ * 62-node template — we assert < 10s here to leave headroom for
+ * CI / slow sandboxes but still catch a regression to the old loop.
  */
+test('create new project completes in well under 10 seconds (perf regression guard)', async ({
+  page,
+}) => {
+  const username = uniqueUsername('perf')
+  await registerNewUser(page, username)
+
+  // Open the create modal from the empty-hero affordance.
+  await page.getByTestId('empty-hero-create').click()
+  await page.getByTestId('project-name').fill('性能测试项目')
+
+  // Count /api/ requests that fire AFTER the submit click. The old
+  // path issued ~600 (62 nodes × ~9 checklist items, each a serial
+  // POST, plus 62 GETs to rehydrate). The bulk init + snapshot path
+  // should be 3 calls: POST projects, POST init-from-template, GET
+  // snapshot. We allow up to 10 to leave room for the topbar
+  // refresh + an extra retry, but anything close to 60 means a
+  // regression.
+  const apiRequests: string[] = []
+  let countRequests = false
+  page.on('request', (req) => {
+    if (!countRequests) return
+    const u = req.url()
+    const idx = u.indexOf('/api/')
+    if (idx >= 0) apiRequests.push(u.slice(idx))
+  })
+
+  const start = Date.now()
+  countRequests = true
+  await page.getByTestId('project-create-submit').click()
+
+  // Topbar reflects the new project once the cache has caught up. This
+  // covers backend create + init-from-template + snapshot hydrate.
+  await expect(page.getByText('性能测试项目', { exact: false }).first()).toBeVisible({
+    timeout: 15_000,
+  })
+  const elapsed = Date.now() - start
+
+  // Node tree shows 62 nodes (one per active template entry).
+  await page.getByRole('button', { name: /节点工作台/ }).click()
+  await expect(page.locator('.node-link')).toHaveCount(62, { timeout: 15_000 })
+
+  // Stop counting before any unrelated background traffic kicks in.
+  countRequests = false
+
+  expect(elapsed).toBeLessThan(10_000)
+
+  // Hard ceiling: < 10 total /api/ calls. Anything approaching 60 would
+  // mean the per-node hydration crept back in.
+  expect(
+    apiRequests.length,
+    `Too many /api/ requests:\n${apiRequests.join('\n')}`,
+  ).toBeLessThan(10)
+
+  // Belt-and-braces: explicitly forbid the per-node checklist GET that
+  // used to dominate hydration time. A single match would mean the
+  // snapshot endpoint isn't being used.
+  const perNodeChecklistCalls = apiRequests.filter((u) =>
+    /\/api\/nodes\/[^/]+\/checklist(\?|$)/.test(u),
+  )
+  expect(perNodeChecklistCalls, perNodeChecklistCalls.join('\n')).toEqual([])
+})
 test('CR2: cross-account switch does not leak A’s currentProjectId to B', async ({ page }) => {
   const alice = uniqueUsername('alice')
   const bob = uniqueUsername('bob')
