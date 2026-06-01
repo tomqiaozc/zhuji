@@ -51,20 +51,7 @@ export interface Purchase {
   totalPrice: number
   purchaseDate?: string
   purchaseUrl?: string
-  imageIds: string[]
   remark?: string
-  createdAt: string
-}
-
-export interface Asset {
-  id: string
-  projectId: string
-  refType: 'purchase' | 'node'
-  refId: string
-  fileName: string
-  mimeType: string
-  blob: Blob
-  size: number
   createdAt: string
 }
 

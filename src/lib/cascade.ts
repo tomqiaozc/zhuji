@@ -14,10 +14,3 @@ export async function deleteNodeCascade(nodeId: string): Promise<void> {
   // Backend cascades by FK; the local cache is wiped inside the helper.
   await repoDeleteNode(nodeId)
 }
-
-export async function deleteAsset(_assetId: string): Promise<void> {
-  // Asset upload to backend Blob Storage lands in M6 — until then this
-  // is a no-op so the existing image panel UI keeps mounting without
-  // throwing. PurchaseDrawer now hides the upload affordance.
-  return
-}

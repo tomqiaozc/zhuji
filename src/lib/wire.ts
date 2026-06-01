@@ -4,7 +4,7 @@
  * the rest of the repository layer stays JSON-shape-agnostic.
  */
 
-import type { ChecklistItem, DecorNode, NodeStatus, Project, Purchase, Reminder } from '@/types'
+import type { ChecklistItem, DecorNode, NodeStatus, Project, ProjectType, Purchase, Reminder } from '@/types'
 
 // ─── Wire types ──────────────────────────────────────────────────
 
@@ -148,13 +148,41 @@ const num = (v: number | string | null | undefined): number => {
   return typeof v === 'number' ? v : Number(v)
 }
 
+// Defensive enum narrowing — the backend is the source of truth, but
+// a schema drift, an old client reading a newer server, or a hand-rolled
+// payload shouldn't crash the UI. Unknown values fall back to a safe
+// default; the cast happens once here instead of being scattered across
+// callers as ad-hoc `as` assertions.
+const NODE_STATUSES: readonly NodeStatus[] = ['todo', 'doing', 'done', 'skipped']
+function toNodeStatus(v: unknown): NodeStatus {
+  return typeof v === 'string' && (NODE_STATUSES as readonly string[]).includes(v)
+    ? (v as NodeStatus)
+    : 'todo'
+}
+
+const PROJECT_TYPES: readonly ProjectType[] = ['毛坯', '老房改造', '局部翻新']
+function toProjectType(v: unknown): ProjectType | undefined {
+  if (v == null) return undefined
+  return typeof v === 'string' && (PROJECT_TYPES as readonly string[]).includes(v)
+    ? (v as ProjectType)
+    : undefined
+}
+
+const REPEATED_VALUES = ['none', 'daily', 'weekly'] as const
+type RepeatedValue = (typeof REPEATED_VALUES)[number]
+function toRepeated(v: unknown): RepeatedValue {
+  return typeof v === 'string' && (REPEATED_VALUES as readonly string[]).includes(v)
+    ? (v as RepeatedValue)
+    : 'none'
+}
+
 export function projectFromWire(p: ProjectOut): Project {
   return {
     id: p.id,
     name: p.name,
     address: p.address ?? undefined,
     area: p.area == null ? undefined : num(p.area),
-    type: (p.type ?? undefined) as Project['type'],
+    type: toProjectType(p.type),
     startDate: p.start_date ?? undefined,
     expectedEndDate: p.expected_end_date ?? undefined,
     createdAt: p.created_at,
@@ -179,7 +207,7 @@ export function nodeFromWire(n: NodeOut, checklist: ChecklistItem[] = []): Decor
     stage: n.stage,
     name: n.name,
     order: n.order,
-    status: (n.status as NodeStatus) ?? 'todo',
+    status: toNodeStatus(n.status),
     plannedStart: n.planned_start ?? undefined,
     plannedEnd: n.planned_end ?? undefined,
     actualStart: n.actual_start ?? undefined,
@@ -249,7 +277,6 @@ export function purchaseFromWire(p: PurchaseOut): Purchase {
     totalPrice: num(p.total_price),
     purchaseDate: p.purchase_date ?? undefined,
     purchaseUrl: p.purchase_url ?? undefined,
-    imageIds: [], // images are server-side blob URLs in M5+; legacy local IDs no longer apply
     remark: p.remark ?? undefined,
     createdAt: p.created_at,
   }
@@ -296,7 +323,7 @@ export function reminderFromWire(r: ReminderOut): Reminder {
     nodeId: r.node_id ?? undefined,
     title: r.title,
     triggerAt: r.trigger_at,
-    repeated: (r.repeated ?? 'none') as Reminder['repeated'],
+    repeated: toRepeated(r.repeated),
     done: r.done,
   }
 }
