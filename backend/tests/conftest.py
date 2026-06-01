@@ -5,9 +5,11 @@ from __future__ import annotations
 import os
 import uuid
 
-# Use SQLite for tests; pydantic-settings will pick this up via env var.
+# Test environment. Set these BEFORE importing src.* so pydantic-settings
+# picks them up. JWT_SECRET has no default in code (production safety) —
+# tests pin a long static value here.
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("JWT_SECRET", "test-only-jwt-secret-not-for-production-0123456789abcdef")
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -55,13 +57,23 @@ async def client(db_session_factory):
     app.dependency_overrides.clear()
 
 
-async def register_user(client: AsyncClient, *, username: str | None = None, password: str = "secret-1234") -> dict:
+async def register_user(
+    client: AsyncClient,
+    *,
+    username: str | None = None,
+    password: str = "secret-1234",
+) -> dict:
     if username is None:
         username = f"u-{uuid.uuid4().hex[:8]}"
     r = await client.post("/api/auth/register", json={"username": username, "password": password})
     assert r.status_code == 201, r.text
     body = r.json()
-    return {"token": body["access_token"], "user": body["user"], "username": username, "password": password}
+    return {
+        "token": body["access_token"],
+        "user": body["user"],
+        "username": username,
+        "password": password,
+    }
 
 
 def auth_headers(token: str) -> dict:

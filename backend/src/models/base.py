@@ -19,11 +19,10 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
-    UniqueConstraint,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.types import TypeDecorator, CHAR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.types import CHAR, TypeDecorator
 
 
 class GUID(TypeDecorator):
@@ -71,9 +70,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
-    projects: Mapped[List["Project"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
+    projects: Mapped[List["Project"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Project(Base):
@@ -92,18 +89,10 @@ class Project(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     user: Mapped[User] = relationship(back_populates="projects")
-    nodes: Mapped[List["Node"]] = relationship(
-        back_populates="project", cascade="all, delete-orphan"
-    )
-    purchases: Mapped[List["Purchase"]] = relationship(
-        back_populates="project", cascade="all, delete-orphan"
-    )
-    assets: Mapped[List["Asset"]] = relationship(
-        back_populates="project", cascade="all, delete-orphan"
-    )
-    reminders: Mapped[List["Reminder"]] = relationship(
-        back_populates="project", cascade="all, delete-orphan"
-    )
+    nodes: Mapped[List["Node"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    purchases: Mapped[List["Purchase"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    assets: Mapped[List["Asset"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+    reminders: Mapped[List["Reminder"]] = relationship(back_populates="project", cascade="all, delete-orphan")
 
 
 class Node(Base):
@@ -153,9 +142,7 @@ class Purchase(Base):
     project_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    node_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        GUID(), ForeignKey("nodes.id", ondelete="SET NULL")
-    )
+    node_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), ForeignKey("nodes.id", ondelete="SET NULL"))
     name: Mapped[str] = mapped_column(Text, nullable=False)
     spec: Mapped[Optional[str]] = mapped_column(Text)
     brand: Mapped[Optional[str]] = mapped_column(Text)
@@ -197,9 +184,7 @@ class Reminder(Base):
     project_id: Mapped[uuid.UUID] = mapped_column(
         GUID(), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    node_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        GUID(), ForeignKey("nodes.id", ondelete="SET NULL")
-    )
+    node_id: Mapped[Optional[uuid.UUID]] = mapped_column(GUID(), ForeignKey("nodes.id", ondelete="SET NULL"))
     title: Mapped[str] = mapped_column(Text, nullable=False)
     trigger_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     repeated: Mapped[Optional[str]] = mapped_column(String(16))  # 'none'|'daily'|'weekly'

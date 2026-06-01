@@ -44,9 +44,7 @@ async def test_user_cannot_write_to_other_users_project(client: AsyncClient) -> 
     alice = await register_user(client, username="alice2")
     bob = await register_user(client, username="bob2")
 
-    r = await client.post(
-        "/api/projects", headers=auth_headers(alice["token"]), json={"name": "A"}
-    )
+    r = await client.post("/api/projects", headers=auth_headers(alice["token"]), json={"name": "A"})
     alice_pid = r.json()["id"]
 
     # Bob tries to create a node under Alice's project
@@ -62,7 +60,11 @@ async def test_user_cannot_write_to_other_users_project(client: AsyncClient) -> 
         f"/api/projects/{alice_pid}/purchases",
         headers=auth_headers(bob["token"]),
         json={
-            "name": "x", "category": "x", "unit_price": 1, "quantity": 1, "total_price": 1,
+            "name": "x",
+            "category": "x",
+            "unit_price": 1,
+            "quantity": 1,
+            "total_price": 1,
         },
     )
     assert r.status_code == 404
@@ -78,9 +80,7 @@ async def test_node_and_checklist_are_isolated(client: AsyncClient) -> None:
     alice = await register_user(client, username="alice3")
     bob = await register_user(client, username="bob3")
 
-    r = await client.post(
-        "/api/projects", headers=auth_headers(alice["token"]), json={"name": "A"}
-    )
+    r = await client.post("/api/projects", headers=auth_headers(alice["token"]), json={"name": "A"})
     alice_pid = r.json()["id"]
     r = await client.post(
         f"/api/projects/{alice_pid}/nodes",

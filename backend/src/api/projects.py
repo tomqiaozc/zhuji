@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -20,11 +20,11 @@ if TYPE_CHECKING:
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
 
-@router.get("", response_model=List[ProjectOut])
+@router.get("", response_model=list[ProjectOut])
 async def list_projects(
     user: User = Depends(get_current_user),
     db: "AsyncSession" = Depends(get_db),
-) -> List[ProjectOut]:
+) -> list[ProjectOut]:
     result = await db.execute(
         select(Project).where(Project.user_id == user.id).order_by(Project.created_at.desc())
     )

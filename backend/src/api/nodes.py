@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -31,16 +31,14 @@ if TYPE_CHECKING:
 router = APIRouter(tags=["nodes"])
 
 
-@router.get("/api/projects/{project_id}/nodes", response_model=List[NodeOut])
+@router.get("/api/projects/{project_id}/nodes", response_model=list[NodeOut])
 async def list_nodes(
     project_id: UUID,
     user: User = Depends(get_current_user),
     db: "AsyncSession" = Depends(get_db),
-) -> List[NodeOut]:
+) -> list[NodeOut]:
     await get_user_project(db, user, project_id)
-    result = await db.execute(
-        select(Node).where(Node.project_id == project_id).order_by(Node.order)
-    )
+    result = await db.execute(select(Node).where(Node.project_id == project_id).order_by(Node.order))
     return [NodeOut.model_validate(n) for n in result.scalars().all()]
 
 
@@ -101,12 +99,12 @@ async def delete_node(
 # ── Checklist ────────────────────────────────────────────────────
 
 
-@router.get("/api/nodes/{node_id}/checklist", response_model=List[ChecklistItemOut])
+@router.get("/api/nodes/{node_id}/checklist", response_model=list[ChecklistItemOut])
 async def list_checklist(
     node_id: UUID,
     user: User = Depends(get_current_user),
     db: "AsyncSession" = Depends(get_db),
-) -> List[ChecklistItemOut]:
+) -> list[ChecklistItemOut]:
     await get_user_node(db, user, node_id)
     result = await db.execute(
         select(ChecklistItem).where(ChecklistItem.node_id == node_id).order_by(ChecklistItem.order)

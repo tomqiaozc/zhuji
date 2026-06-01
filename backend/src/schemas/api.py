@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -62,31 +61,31 @@ class UserOut(_ORM):
 
 class ProjectIn(BaseModel):
     name: str = Field(min_length=1, max_length=200)
-    address: Optional[str] = None
-    area: Optional[float] = None
-    type: Optional[str] = None
-    start_date: Optional[date] = None
-    expected_end_date: Optional[date] = None
+    address: str | None = None
+    area: float | None = None
+    type: str | None = None
+    start_date: date | None = None
+    expected_end_date: date | None = None
 
 
 class ProjectUpdate(BaseModel):
-    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    address: Optional[str] = None
-    area: Optional[float] = None
-    type: Optional[str] = None
-    start_date: Optional[date] = None
-    expected_end_date: Optional[date] = None
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    address: str | None = None
+    area: float | None = None
+    type: str | None = None
+    start_date: date | None = None
+    expected_end_date: date | None = None
 
 
 class ProjectOut(_ORM):
     id: UUID
     user_id: UUID
     name: str
-    address: Optional[str] = None
-    area: Optional[float] = None
-    type: Optional[str] = None
-    start_date: Optional[date] = None
-    expected_end_date: Optional[date] = None
+    address: str | None = None
+    area: float | None = None
+    type: str | None = None
+    start_date: date | None = None
+    expected_end_date: date | None = None
     created_at: datetime
 
 
@@ -98,27 +97,27 @@ class NodeIn(BaseModel):
     name: str
     order: int = 0
     status: str = "todo"
-    planned_start: Optional[date] = None
-    planned_end: Optional[date] = None
-    actual_start: Optional[date] = None
-    actual_end: Optional[date] = None
+    planned_start: date | None = None
+    planned_end: date | None = None
+    actual_start: date | None = None
+    actual_end: date | None = None
     tips: str = ""
     tips_modified: bool = False
     notes: str = ""
 
 
 class NodeUpdate(BaseModel):
-    stage: Optional[str] = None
-    name: Optional[str] = None
-    order: Optional[int] = None
-    status: Optional[str] = None
-    planned_start: Optional[date] = None
-    planned_end: Optional[date] = None
-    actual_start: Optional[date] = None
-    actual_end: Optional[date] = None
-    tips: Optional[str] = None
-    tips_modified: Optional[bool] = None
-    notes: Optional[str] = None
+    stage: str | None = None
+    name: str | None = None
+    order: int | None = None
+    status: str | None = None
+    planned_start: date | None = None
+    planned_end: date | None = None
+    actual_start: date | None = None
+    actual_end: date | None = None
+    tips: str | None = None
+    tips_modified: bool | None = None
+    notes: str | None = None
 
 
 class NodeOut(_ORM):
@@ -128,10 +127,10 @@ class NodeOut(_ORM):
     name: str
     order: int
     status: str
-    planned_start: Optional[date] = None
-    planned_end: Optional[date] = None
-    actual_start: Optional[date] = None
-    actual_end: Optional[date] = None
+    planned_start: date | None = None
+    planned_end: date | None = None
+    actual_start: date | None = None
+    actual_end: date | None = None
     tips: str
     tips_modified: bool
     notes: str
@@ -143,15 +142,15 @@ class NodeOut(_ORM):
 class ChecklistItemIn(BaseModel):
     text: str
     done: bool = False
-    note: Optional[str] = None
+    note: str | None = None
     order: int = 0
 
 
 class ChecklistItemUpdate(BaseModel):
-    text: Optional[str] = None
-    done: Optional[bool] = None
-    note: Optional[str] = None
-    order: Optional[int] = None
+    text: str | None = None
+    done: bool | None = None
+    note: str | None = None
+    order: int | None = None
 
 
 class ChecklistItemOut(_ORM):
@@ -159,7 +158,7 @@ class ChecklistItemOut(_ORM):
     node_id: UUID
     text: str
     done: bool
-    note: Optional[str] = None
+    note: str | None = None
     order: int
 
 
@@ -167,50 +166,50 @@ class ChecklistItemOut(_ORM):
 
 
 class PurchaseIn(BaseModel):
-    node_id: Optional[UUID] = None
+    node_id: UUID | None = None
     name: str
-    spec: Optional[str] = None
-    brand: Optional[str] = None
-    channel: Optional[str] = None
+    spec: str | None = None
+    brand: str | None = None
+    channel: str | None = None
     category: str = ""
     unit_price: float = 0
     quantity: float = 1
     total_price: float = 0
-    purchase_date: Optional[date] = None
-    purchase_url: Optional[str] = None
-    remark: Optional[str] = None
+    purchase_date: date | None = None
+    purchase_url: str | None = None
+    remark: str | None = None
 
 
 class PurchaseUpdate(BaseModel):
-    node_id: Optional[UUID] = None
-    name: Optional[str] = None
-    spec: Optional[str] = None
-    brand: Optional[str] = None
-    channel: Optional[str] = None
-    category: Optional[str] = None
-    unit_price: Optional[float] = None
-    quantity: Optional[float] = None
-    total_price: Optional[float] = None
-    purchase_date: Optional[date] = None
-    purchase_url: Optional[str] = None
-    remark: Optional[str] = None
+    node_id: UUID | None = None
+    name: str | None = None
+    spec: str | None = None
+    brand: str | None = None
+    channel: str | None = None
+    category: str | None = None
+    unit_price: float | None = None
+    quantity: float | None = None
+    total_price: float | None = None
+    purchase_date: date | None = None
+    purchase_url: str | None = None
+    remark: str | None = None
 
 
 class PurchaseOut(_ORM):
     id: UUID
     project_id: UUID
-    node_id: Optional[UUID] = None
+    node_id: UUID | None = None
     name: str
-    spec: Optional[str] = None
-    brand: Optional[str] = None
-    channel: Optional[str] = None
+    spec: str | None = None
+    brand: str | None = None
+    channel: str | None = None
     category: str
     unit_price: float
     quantity: float
     total_price: float
-    purchase_date: Optional[date] = None
-    purchase_url: Optional[str] = None
-    remark: Optional[str] = None
+    purchase_date: date | None = None
+    purchase_url: str | None = None
+    remark: str | None = None
     created_at: datetime
 
 
@@ -218,28 +217,28 @@ class PurchaseOut(_ORM):
 
 
 class ReminderIn(BaseModel):
-    node_id: Optional[UUID] = None
+    node_id: UUID | None = None
     title: str
     trigger_at: datetime
-    repeated: Optional[str] = None
+    repeated: str | None = None
     done: bool = False
 
 
 class ReminderUpdate(BaseModel):
-    node_id: Optional[UUID] = None
-    title: Optional[str] = None
-    trigger_at: Optional[datetime] = None
-    repeated: Optional[str] = None
-    done: Optional[bool] = None
+    node_id: UUID | None = None
+    title: str | None = None
+    trigger_at: datetime | None = None
+    repeated: str | None = None
+    done: bool | None = None
 
 
 class ReminderOut(_ORM):
     id: UUID
     project_id: UUID
-    node_id: Optional[UUID] = None
+    node_id: UUID | None = None
     title: str
     trigger_at: datetime
-    repeated: Optional[str] = None
+    repeated: str | None = None
     done: bool
 
 

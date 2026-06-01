@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -20,12 +20,12 @@ if TYPE_CHECKING:
 router = APIRouter(tags=["purchases"])
 
 
-@router.get("/api/projects/{project_id}/purchases", response_model=List[PurchaseOut])
+@router.get("/api/projects/{project_id}/purchases", response_model=list[PurchaseOut])
 async def list_purchases(
     project_id: UUID,
     user: User = Depends(get_current_user),
     db: "AsyncSession" = Depends(get_db),
-) -> List[PurchaseOut]:
+) -> list[PurchaseOut]:
     await get_user_project(db, user, project_id)
     result = await db.execute(
         select(Purchase)
@@ -82,9 +82,7 @@ async def update_purchase(
     if "node_id" in data and data["node_id"] is not None:
         node = await get_user_node(db, user, data["node_id"])
         if node.project_id != purchase.project_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="节点不属于该项目"
-            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="节点不属于该项目")
     for k, v in data.items():
         setattr(purchase, k, v)
     await db.commit()

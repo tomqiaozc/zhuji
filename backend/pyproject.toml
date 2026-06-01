@@ -12,6 +12,9 @@ dependencies = [
     "alembic>=1.14.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.6.0",
+    # Lets Pydantic evaluate PEP 604 (`X | None`) annotations under
+    # Python 3.9; pydantic itself prints the install hint when missing.
+    "eval-type-backport>=0.2.0; python_version < '3.10'",
     "passlib[bcrypt]>=1.7.4",
     "bcrypt>=4.0.0,<5.0.0",
     "python-jose[cryptography]>=3.3.0",
@@ -38,15 +41,31 @@ packages = ["src"]
 
 [tool.ruff]
 target-version = "py39"
-line-length = 100
+# CJK characters render at 2 cells visually but count as 1 ruff column;
+# 110 keeps Chinese strings (data tables, error messages) on one line.
+line-length = 110
+extend-exclude = [".venv", "alembic/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM"]
+# B008: FastAPI's `Depends(...)` / `Query(...)` are deliberately used as
+#       function defaults — the framework requires this pattern.
+# UP037: quoted annotations like `"AsyncSession"` are intentional inside
+#        TYPE_CHECKING guards (the strings stay strings at runtime).
+ignore = ["B008", "UP037"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/schemas/*.py" = ["UP045"]
-"src/models/*.py" = ["UP045", "UP006", "UP035"]
-"src/api/*.py" = ["UP045"]
+# SQLAlchemy 2.0 declarative models need runtime generics — UP006/UP035/UP045
+# would break Mapped[List[...]] / Mapped[Optional[...]] resolution on
+# Python 3.9 (SQLAlchemy can't resolve PEP 604 unions there).
+"src/models/*.py" = ["UP006", "UP035", "UP045"]
+# load_demo and other services build runtime typed dicts/lists.
+"src/services/*.py" = ["UP006", "UP035"]
+# Test fixtures import after env setup; allow the deliberate ordering.
+"tests/conftest.py" = ["E402"]
+
+[tool.ruff.format]
+line-ending = "lf"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

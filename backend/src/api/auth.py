@@ -30,7 +30,10 @@ async def register(payload: RegisterRequest, db: "AsyncSession" = Depends(get_db
     await db.commit()
     await db.refresh(user)
 
-    return TokenResponse(access_token=create_access_token(user.id), user=UserOut.model_validate(user))
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        user=UserOut.model_validate(user),
+    )
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -38,10 +41,11 @@ async def login(payload: LoginRequest, db: "AsyncSession" = Depends(get_db)) -> 
     result = await db.execute(select(User).where(User.username == payload.username))
     user = result.scalar_one_or_none()
     if user is None or not verify_password(payload.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误"
-        )
-    return TokenResponse(access_token=create_access_token(user.id), user=UserOut.model_validate(user))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
+    return TokenResponse(
+        access_token=create_access_token(user.id),
+        user=UserOut.model_validate(user),
+    )
 
 
 @router.get("/me", response_model=UserOut)

@@ -19,9 +19,7 @@ if TYPE_CHECKING:
 
 
 async def get_user_project(db: "AsyncSession", user: User, project_id: UUID) -> Project:
-    result = await db.execute(
-        select(Project).where(Project.id == project_id, Project.user_id == user.id)
-    )
+    result = await db.execute(select(Project).where(Project.id == project_id, Project.user_id == user.id))
     project = result.scalar_one_or_none()
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="项目不存在")
@@ -40,9 +38,7 @@ async def get_user_node(db: "AsyncSession", user: User, node_id: UUID) -> Node:
     return node
 
 
-async def get_user_checklist_item(
-    db: "AsyncSession", user: User, item_id: UUID
-) -> ChecklistItem:
+async def get_user_checklist_item(db: "AsyncSession", user: User, item_id: UUID) -> ChecklistItem:
     result = await db.execute(
         select(ChecklistItem)
         .join(Node, Node.id == ChecklistItem.node_id)

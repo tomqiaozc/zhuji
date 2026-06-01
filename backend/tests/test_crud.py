@@ -94,9 +94,7 @@ async def test_purchase_crud(client: AsyncClient) -> None:
     assert r.status_code == 201
     purchase_id = r.json()["id"]
 
-    r = await client.get(
-        f"/api/projects/{pid}/purchases", headers=auth_headers(info["token"])
-    )
+    r = await client.get(f"/api/projects/{pid}/purchases", headers=auth_headers(info["token"]))
     assert len(r.json()) == 1
 
     r = await client.patch(
@@ -119,9 +117,7 @@ async def test_reminder_crud(client: AsyncClient) -> None:
     assert r.status_code == 201
     rid = r.json()["id"]
 
-    r = await client.get(
-        f"/api/projects/{pid}/reminders", headers=auth_headers(info["token"])
-    )
+    r = await client.get(f"/api/projects/{pid}/reminders", headers=auth_headers(info["token"]))
     assert len(r.json()) == 1
 
     r = await client.delete(f"/api/reminders/{rid}", headers=auth_headers(info["token"]))

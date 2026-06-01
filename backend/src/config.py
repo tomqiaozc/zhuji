@@ -1,7 +1,13 @@
-"""Application configuration (pydantic-settings)."""
+"""Application configuration (pydantic-settings).
+
+``JWT_SECRET`` is **required** — there is no fallback. The process refuses
+to start without one, so a leaked default value can never make it to
+production.
+"""
 
 from __future__ import annotations
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
@@ -9,8 +15,10 @@ class Settings(BaseSettings):
     # Database — must be an async URL (postgresql+asyncpg://... or sqlite+aiosqlite://...)
     database_url: str = "postgresql+asyncpg://zhuji:devpassword@localhost:5432/zhuji"
 
-    # JWT
-    jwt_secret: str = "dev-jwt-secret-change-in-production"
+    # JWT — REQUIRED. No default; provision via env var (.env in dev,
+    # Key Vault in prod). Min length 32 to keep dev placeholders from
+    # sneaking through.
+    jwt_secret: str = Field(min_length=32)
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24 * 7  # 7 days
 
