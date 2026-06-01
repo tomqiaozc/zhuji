@@ -329,13 +329,14 @@ export async function updateNode(
 
   return withOptimistic(
     async () => {
-      // Optimistic field patch: merge into the cached row immediately so
-      // toggles (status, dates, notes) render without waiting for HTTP.
-      if (existing && hasFieldPatch) {
+      // Optimistic patch: merge fields and/or checklist into the cached
+      // row immediately so toggles, status changes, and checklist edits
+      // all render without waiting for HTTP.
+      if (existing && (hasFieldPatch || patch.checklist !== undefined)) {
         const optimistic: DecorNode = {
           ...existing,
           ...patch,
-          checklist: existing.checklist, // checklist owned by replaceChecklist below
+          checklist: patch.checklist ?? existing.checklist,
         }
         await cacheNode(optimistic)
       }
