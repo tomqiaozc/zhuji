@@ -15,7 +15,7 @@
  */
 
 import { db } from '@/db'
-import { api } from '@/lib/api'
+import { api, authedUrl } from '@/lib/api'
 import {
   type ChecklistItemOut,
   type LoadDemoResponse,
@@ -388,7 +388,10 @@ export interface AssetSummary {
   projectId: string
   refType: 'node' | 'purchase'
   refId: string
-  blobUrl: string
+  /** Auth-protected proxy URL — works in `<img src>` because it embeds
+   *  the JWT as a query parameter. Built from the asset id, NOT the raw
+   *  blob URL (the container is private). */
+  contentUrl: string
   fileName: string
   mimeType: string
   size: number
@@ -413,7 +416,7 @@ function assetFromWire(a: AssetOut): AssetSummary {
     projectId: a.project_id,
     refType: a.ref_type as 'node' | 'purchase',
     refId: a.ref_id,
-    blobUrl: a.blob_url,
+    contentUrl: authedUrl(`/api/assets/${a.id}/content`),
     fileName: a.file_name,
     mimeType: a.mime_type,
     size: a.size,

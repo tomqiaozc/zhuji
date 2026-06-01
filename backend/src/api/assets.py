@@ -11,7 +11,7 @@ import contextlib
 from typing import TYPE_CHECKING, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy import select
 
 from src.api._ownership import (
@@ -132,3 +132,38 @@ async def delete_asset(
             blob_storage.delete_blob(asset.blob_url)
     await db.delete(asset)
     await db.commit()
+
+
+@router.get("/api/assets/{asset_id}/content")
+async def get_asset_content(
+    asset_id: UUID,
+    user: User = Depends(get_current_user),
+    db: "AsyncSession" = Depends(get_db),
+) -> Response:
+    """Auth-protected blob proxy.
+
+    The blob container is private (装修照片属隐私), so the URL we
+    persist isn't usable directly from the browser. This endpoint
+    re-streams the bytes after re-checking JWT + ownership. Accepts
+    the JWT either via ``Authorization: Bearer ...`` (preferred) or
+    via ``?token=...`` (so ``<img src>`` works without custom headers).
+    """
+    asset = await get_user_asset(db, user, asset_id)
+    _ensure_storage()
+    try:
+        data = blob_storage.download_blob(asset.blob_url)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"读取对象存储失败：{exc}",
+        ) from exc
+    # 5-minute private cache — the same user's repeated views hit
+    # nothing further, but the bytes never sit in a shared CDN cache.
+    return Response(
+        content=data,
+        media_type=asset.mime_type or "application/octet-stream",
+        headers={
+            "Cache-Control": "private, max-age=300",
+            "Content-Disposition": f'inline; filename="{asset.file_name}"',
+        },
+    )

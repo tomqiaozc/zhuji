@@ -55,3 +55,34 @@ async def test_assets_isolated_across_users(client: AsyncClient) -> None:
     # Bob cannot even list Alice's assets
     r = await client.get(f"/api/projects/{alice_pid}/assets", headers=auth_headers(bob["token"]))
     assert r.status_code == 404
+
+
+async def test_content_endpoint_accepts_query_token(client: AsyncClient) -> None:
+    """`<img src>` can't carry an Authorization header — the proxy must
+    accept the JWT via ``?token=...`` as well. Use a non-existent asset
+    id so the test stays storage-free: the auth check runs FIRST, and
+    a valid token + bogus id returns 404 (resource-not-found), while
+    no token at all returns 401."""
+    info = await register_user(client)
+
+    bogus_asset = "00000000-0000-0000-0000-000000000000"
+
+    # No token at all → 401
+    r = await client.get(f"/api/assets/{bogus_asset}/content")
+    assert r.status_code == 401
+
+    # Token via query string → auth passes, then 404 because the asset
+    # doesn't exist for this user.
+    r = await client.get(f"/api/assets/{bogus_asset}/content?token={info['token']}")
+    assert r.status_code == 404, r.text
+
+
+async def test_content_endpoint_404_for_other_user(client: AsyncClient) -> None:
+    """A valid token belonging to user B must NOT grant access to user
+    A's asset id (even though we have no real asset row to test against,
+    the ownership join is what we're checking — a non-existent id
+    returns 404 the same way a stolen-id-belonging-to-someone-else
+    would). Documents the contract."""
+    info = await register_user(client, username="ct-user")
+    r = await client.get(f"/api/assets/00000000-0000-0000-0000-000000000000/content?token={info['token']}")
+    assert r.status_code == 404

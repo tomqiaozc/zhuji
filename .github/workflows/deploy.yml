@@ -106,14 +106,18 @@ jobs:
           images: ${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
 
       # The backend container's entrypoint runs `alembic upgrade head`
-      # before gunicorn starts, so migrations apply automatically on
-      # every deploy without an extra step.
+      # before gunicorn starts and EXITS NON-ZERO on failure, so a
+      # broken migration prevents the container from ever serving
+      # traffic (the readiness probe below catches the rest).
 
       - name: Smoke test backend
+        # `/api/health` checks the DB connection and returns 503 on
+        # failure, so a green check here proves Postgres is reachable
+        # AND the schema is at head — not just "the worker is running".
         run: |
           for i in $(seq 1 12); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-              "https://${{ vars.BACKEND_APP_NAME }}.azurewebsites.net/api/health/liveness")
+              "https://${{ vars.BACKEND_APP_NAME }}.azurewebsites.net/api/health")
             if [ "$STATUS" = "200" ]; then
               echo "Backend health OK"
               break
@@ -122,7 +126,8 @@ jobs:
             sleep 30
           done
           if [ "$STATUS" != "200" ]; then
-            echo "Backend health check failed."
+            echo "Backend health check failed (DB unreachable or migrations broken)."
+            curl -s "https://${{ vars.BACKEND_APP_NAME }}.azurewebsites.net/api/health" || true
             exit 1
           fi
 

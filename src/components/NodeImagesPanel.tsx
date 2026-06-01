@@ -95,7 +95,7 @@ export function NodeImagesPanel({ node }: Props) {
     () =>
       display.map((d) => ({
         id: d.asset.id,
-        src: d.asset.blobUrl,
+        src: d.asset.contentUrl,
         alt: d.asset.fileName,
         caption: d.caption,
       })),
@@ -154,7 +154,7 @@ export function NodeImagesPanel({ node }: Props) {
         {display.map((d, i) => (
           <div key={d.asset.id} className="image-thumb">
             <LazyImage
-              src={d.asset.blobUrl}
+              src={d.asset.contentUrl}
               alt={d.asset.fileName}
               onClick={() => setLightboxIndex(i)}
               data-testid="image-thumb-img"

@@ -37,6 +37,19 @@ export function configureApi(opts: {
   onUnauthorized = opts.onUnauthorized
 }
 
+/**
+ * Build an absolute URL for an endpoint that can't carry an
+ * Authorization header — e.g. ``<img src>``. Appends the current JWT
+ * as ``?token=...``. Returns an empty string if the user isn't logged
+ * in, which is a defensive guard for callers that forget to check.
+ */
+export function authedUrl(path: string): string {
+  const token = getToken()
+  if (!token) return ''
+  const sep = path.includes('?') ? '&' : '?'
+  return `${BASE}${path}${sep}token=${encodeURIComponent(token)}`
+}
+
 async function request<T>(
   method: string,
   path: string,

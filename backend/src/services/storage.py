@@ -79,3 +79,23 @@ def delete_blob(blob_url: str) -> None:
         blob.delete_blob()
     except ResourceNotFoundError:
         return
+
+
+def download_blob(blob_url: str) -> bytes:
+    """Fetch the blob body. Used by the auth-protected content proxy.
+
+    For a single-user app + a few-MB image, buffering is fine; if the
+    gallery ever grows past that, swap for a streamed iterator instead
+    (azure-storage-blob's chunks() method).
+    """
+    from urllib.parse import urlparse
+
+    parsed = urlparse(blob_url)
+    parts = parsed.path.lstrip("/").split("/", 1)
+    if len(parts) != 2:
+        raise ValueError(f"unrecognized blob URL: {blob_url}")
+    container_name, blob_name = parts
+    client = _get_client()
+    blob = client.get_container_client(container_name).get_blob_client(blob_name)
+    stream = blob.download_blob()
+    return stream.readall()

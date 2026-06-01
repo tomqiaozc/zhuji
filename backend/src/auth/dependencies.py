@@ -16,18 +16,31 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 
+def _extract_token(request: Request) -> str | None:
+    """Return the JWT from Authorization header, or fall back to ``?token=``.
+
+    The query-string fallback exists for endpoints called via plain
+    ``<img src>`` / browser navigation where adding a custom header is
+    impractical. Callers that have a choice should still use the header.
+    """
+    auth_header = request.headers.get("Authorization") or ""
+    if auth_header.lower().startswith("bearer "):
+        return auth_header.split(" ", 1)[1].strip()
+    qs_token = request.query_params.get("token")
+    return qs_token or None
+
+
 async def get_current_user(
     request: Request,
     db: "AsyncSession" = Depends(get_db),
 ) -> User:
-    auth_header = request.headers.get("Authorization") or ""
-    if not auth_header.lower().startswith("bearer "):
+    token = _extract_token(request)
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing bearer token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    token = auth_header.split(" ", 1)[1].strip()
 
     try:
         user_id = decode_access_token(token)
