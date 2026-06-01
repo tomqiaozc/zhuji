@@ -1,5 +1,6 @@
 import dayjs from 'dayjs'
 import { db } from '@/db'
+import { updateReminder } from '@/lib/repository'
 import type { Reminder } from '@/types'
 import { addInAppReminder } from './reminderBus'
 
@@ -34,14 +35,14 @@ function tryNativeNotification(r: Reminder): boolean {
 
 async function bumpRepeat(r: Reminder): Promise<void> {
   if (!r.repeated || r.repeated === 'none') {
-    await db.reminders.update(r.id, { done: true })
+    await updateReminder(r.id, { done: true })
     return
   }
   const next =
     r.repeated === 'daily'
       ? dayjs(r.triggerAt).add(1, 'day')
       : dayjs(r.triggerAt).add(1, 'week')
-  await db.reminders.update(r.id, { triggerAt: next.toISOString() })
+  await updateReminder(r.id, { triggerAt: next.toISOString() })
 }
 
 let started = false

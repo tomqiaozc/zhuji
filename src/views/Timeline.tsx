@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
+import { updateNode } from '@/lib/repository'
 import type { DecorNode, Project } from '@/types'
 
 interface Props {
@@ -162,7 +163,7 @@ export function Timeline({ project }: Props) {
       s.field === 'planned'
         ? { plannedStart: d.start, plannedEnd: d.end }
         : { actualStart: d.start, actualEnd: d.end }
-    await db.nodes.update(s.nodeId, patch)
+    await updateNode(s.nodeId, patch)
   }
 
   return (

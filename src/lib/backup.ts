@@ -1,133 +1,40 @@
+/**
+ * PDF export — opens the project's record card in a new tab and triggers
+ * print-to-PDF. Reads from the local Dexie cache (which mirrors the
+ * backend), so works offline-ish even right after a sync.
+ *
+ * The old Zip backup / restore code (M3 era) was removed in M5: data
+ * now lives server-side, and re-importing a Zip would clobber the
+ * authoritative cloud copy.
+ */
+
 import dayjs from 'dayjs'
 import { db } from '@/db'
-import { sanitizeHtml } from '@/lib/sanitize'
-import type { Asset, DecorNode, Project, Purchase, Reminder } from '@/types'
-
-interface BackupManifest {
-  version: 1
-  exportedAt: string
-  projects: Project[]
-  nodes: DecorNode[]
-  purchases: Purchase[]
-  reminders: Reminder[]
-  assets: { id: string; projectId: string; refType: string; refId: string; fileName: string; mimeType: string; size: number; createdAt: string }[]
-}
-
-export async function exportFullZip(): Promise<Blob> {
-  const { default: JSZip } = await import('jszip')
-  const zip = new JSZip()
-  const [projects, nodes, purchases, reminders, assets] = await Promise.all([
-    db.projects.toArray(),
-    db.nodes.toArray(),
-    db.purchases.toArray(),
-    db.reminders.toArray(),
-    db.assets.toArray(),
-  ])
-  const manifest: BackupManifest = {
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    projects,
-    nodes,
-    purchases,
-    reminders,
-    assets: assets.map((a) => ({
-      id: a.id,
-      projectId: a.projectId,
-      refType: a.refType,
-      refId: a.refId,
-      fileName: a.fileName,
-      mimeType: a.mimeType,
-      size: a.size,
-      createdAt: a.createdAt,
-    })),
-  }
-  zip.file('manifest.json', JSON.stringify(manifest, null, 2))
-  const folder = zip.folder('assets')
-  if (folder) {
-    for (const a of assets) {
-      folder.file(a.id, a.blob, { binary: true })
-    }
-  }
-  return await zip.generateAsync({ type: 'blob' })
-}
-
-export function triggerDownload(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 5_000)
-}
-
-export async function importFullZip(file: File): Promise<{
-  projects: number
-  nodes: number
-  purchases: number
-  reminders: number
-  assets: number
-}> {
-  const { default: JSZip } = await import('jszip')
-  const zip = await JSZip.loadAsync(file)
-  const manifestEntry = zip.file('manifest.json')
-  if (!manifestEntry) throw new Error('备份包内缺少 manifest.json')
-  const manifest = JSON.parse(await manifestEntry.async('string')) as BackupManifest
-  if (manifest.version !== 1) throw new Error(`不支持的备份版本：${manifest.version}`)
-
-  const assets: Asset[] = []
-  for (const meta of manifest.assets) {
-    const entry = zip.file(`assets/${meta.id}`)
-    if (!entry) continue
-    const blob = await entry.async('blob')
-    assets.push({
-      id: meta.id,
-      projectId: meta.projectId,
-      refType: meta.refType as 'purchase' | 'node',
-      refId: meta.refId,
-      fileName: meta.fileName,
-      mimeType: meta.mimeType,
-      blob,
-      size: meta.size,
-      createdAt: meta.createdAt,
-    })
-  }
-
-  await db.transaction(
-    'rw',
-    [db.projects, db.nodes, db.purchases, db.reminders, db.assets],
-    async () => {
-      await Promise.all([
-        db.projects.clear(),
-        db.nodes.clear(),
-        db.purchases.clear(),
-        db.reminders.clear(),
-        db.assets.clear(),
-      ])
-      await db.projects.bulkAdd(manifest.projects)
-      await db.nodes.bulkAdd(
-        manifest.nodes.map((n) => ({ ...n, notes: sanitizeHtml(n.notes) })),
-      )
-      await db.purchases.bulkAdd(manifest.purchases)
-      await db.reminders.bulkAdd(manifest.reminders)
-      await db.assets.bulkAdd(assets)
-    },
-  )
-
-  return {
-    projects: manifest.projects.length,
-    nodes: manifest.nodes.length,
-    purchases: manifest.purchases.length,
-    reminders: manifest.reminders.length,
-    assets: assets.length,
-  }
-}
-
-// ------------------ PDF export (print-to-PDF) ------------------
 
 function fmtMoneyForPdf(n: number): string {
   return '¥ ' + n.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
+}
+
+function statusLabel(s: string): string {
+  switch (s) {
+    case 'done':
+      return '已完成'
+    case 'doing':
+      return '进行中'
+    case 'skipped':
+      return '已跳过'
+    default:
+      return '未开始'
+  }
+}
+
+function escapeHtml(s: string | undefined | null): string {
+  if (!s) return ''
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
 export async function exportProjectPdf(projectId: string): Promise<void> {
@@ -191,7 +98,9 @@ export async function exportProjectPdf(projectId: string): Promise<void> {
       project.type,
       project.startDate ? `开工 ${project.startDate}` : '',
       project.expectedEndDate ? `预计完工 ${project.expectedEndDate}` : '',
-    ].filter(Boolean).join(' · ')}
+    ]
+      .filter(Boolean)
+      .join(' · ')}
     <br/>导出于 ${dayjs().format('YYYY-MM-DD HH:mm')}
   </div>
 
@@ -209,7 +118,9 @@ export async function exportProjectPdf(projectId: string): Promise<void> {
         .sort((a, b) => b[1] - a[1])
         .map(
           ([s, v]) =>
-            `<tr><td>${escapeHtml(s)}</td><td class="right">${fmtMoneyForPdf(v)}</td><td class="right">${totalSpent ? ((v / totalSpent) * 100).toFixed(1) : '0'}%</td></tr>`,
+            `<tr><td>${escapeHtml(s)}</td><td class="right">${fmtMoneyForPdf(v)}</td><td class="right">${
+              totalSpent ? ((v / totalSpent) * 100).toFixed(1) : '0'
+            }%</td></tr>`,
         )
         .join('')}
     </tbody>
@@ -279,26 +190,4 @@ export async function exportProjectPdf(projectId: string): Promise<void> {
   win.document.open()
   win.document.write(html)
   win.document.close()
-}
-
-function statusLabel(s: string): string {
-  switch (s) {
-    case 'done':
-      return '已完成'
-    case 'doing':
-      return '进行中'
-    case 'skipped':
-      return '已跳过'
-    default:
-      return '未开始'
-  }
-}
-
-function escapeHtml(s: string | undefined | null): string {
-  if (!s) return ''
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }

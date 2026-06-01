@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
 import { deletePurchase } from '@/lib/cascade'
+import { updateNode } from '@/lib/repository'
 import { useApp } from '@/store/app'
 import { fmtMoney } from '@/lib/format'
 import { uid } from '@/lib/uid'
@@ -116,7 +117,7 @@ function NodePanel({
     const now = dayjs().format('YYYY-MM-DD')
     if (status === 'doing' && !node.actualStart) patch.actualStart = now
     if (status === 'done' && !node.actualEnd) patch.actualEnd = now
-    await db.nodes.update(node.id, patch)
+    await updateNode(node.id, patch)
   }
 
   return (
@@ -151,22 +152,22 @@ function NodePanel({
           <DateField
             label="计划开始"
             value={node.plannedStart}
-            onChange={(v) => db.nodes.update(node.id, { plannedStart: v || undefined })}
+            onChange={(v) => updateNode(node.id, { plannedStart: v || undefined })}
           />
           <DateField
             label="计划完成"
             value={node.plannedEnd}
-            onChange={(v) => db.nodes.update(node.id, { plannedEnd: v || undefined })}
+            onChange={(v) => updateNode(node.id, { plannedEnd: v || undefined })}
           />
           <DateField
             label="实际开始"
             value={node.actualStart}
-            onChange={(v) => db.nodes.update(node.id, { actualStart: v || undefined })}
+            onChange={(v) => updateNode(node.id, { actualStart: v || undefined })}
           />
           <DateField
             label="实际完成"
             value={node.actualEnd}
-            onChange={(v) => db.nodes.update(node.id, { actualEnd: v || undefined })}
+            onChange={(v) => updateNode(node.id, { actualEnd: v || undefined })}
           />
         </div>
       </div>
@@ -281,7 +282,7 @@ function NodePanel({
         <div className="tab-panel">
           <RichTextEditor
             value={node.notes}
-            onChange={(html) => db.nodes.update(node.id, { notes: html })}
+            onChange={(html) => updateNode(node.id, { notes: html })}
             placeholder="记录这个节点的备注、现场沟通要点、师傅联系方式…"
           />
         </div>
@@ -347,7 +348,7 @@ function TipsPanel({ node }: { node: DecorNode }) {
             <button
               className="btn btn-primary btn-sm"
               onClick={async () => {
-                await db.nodes.update(node.id, { tips: draft, tipsModified: true })
+                await updateNode(node.id, { tips: draft, tipsModified: true })
                 setEditing(false)
               }}
             >
@@ -399,19 +400,19 @@ function ChecklistPanel({ node }: { node: DecorNode }) {
 
   async function toggle(id: string) {
     const items = node.checklist.map((c) => (c.id === id ? { ...c, done: !c.done } : c))
-    await db.nodes.update(node.id, { checklist: items })
+    await updateNode(node.id, { checklist: items })
   }
 
   async function remove(id: string) {
     const items = node.checklist.filter((c) => c.id !== id)
-    await db.nodes.update(node.id, { checklist: items })
+    await updateNode(node.id, { checklist: items })
   }
 
   async function add() {
     const t = newText.trim()
     if (!t) return
     const items = [...node.checklist, { id: uid('chk'), text: t, done: false }]
-    await db.nodes.update(node.id, { checklist: items })
+    await updateNode(node.id, { checklist: items })
     setNewText('')
     setAdding(false)
   }

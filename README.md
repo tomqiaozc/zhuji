@@ -1,66 +1,66 @@
 # 筑迹 Zhuji — 装修管家 Web App
 
-> 单人业主的装修全流程管家。**本地优先**（IndexedDB），**PWA 离线可用**，PC + 手机自适应。
-
-适合自装、半包、全包但又想自己盯紧采购和进度的业主使用。所有数据保存在你浏览器本地，**不上传任何服务器**。
+> 单人业主的装修全流程管家。M5 起改造为**用户系统 + 云端数据**：用户名/密码登录，
+> 数据通过 FastAPI 后端持久化到 PostgreSQL，多设备共享同一份记录。
 
 ## 技术栈
 
-- **前端**：React 18 + Vite 6 + TypeScript
-- **状态**：Zustand (persisted) + Dexie (IndexedDB)
-- **可视化**：Recharts (饼图 / 柱图) + 自研 SVG Gantt 时间线
-- **数据**：dayjs、minisearch (⌘K 搜索)、xlsx (导出)、jszip (备份)
-- **PWA**：vite-plugin-pwa (Workbox) — 安装到桌面 / 离线可用
-- **测试**：Playwright e2e（26 项）
+- **前端**：React 18 + Vite 6 + TypeScript + Zustand + Dexie（本地缓存）
+- **后端**：FastAPI + SQLAlchemy[asyncio] + Alembic + PostgreSQL
+- **认证**：username + password（bcrypt）→ JWT Bearer
+- **可视化**：Recharts + 自研 SVG Gantt
+- **测试**：pytest（后端 18 项）+ Playwright（前端 3 项 M5 黄金路径）
 
 ## 本地开发
 
+需要本地能跑后端：用 docker-compose 起 Postgres + backend 最省事。
+
 ```bash
-# 1. 克隆 & 安装
-git clone https://github.com/tomqiaozc/zhuji.git
-cd zhuji
+# 1. 启动后端（Postgres + FastAPI）
+export JWT_SECRET=$(openssl rand -hex 32)
+docker compose up --build
+# 后端 http://localhost:8000  /  OpenAPI http://localhost:8000/docs
+
+# 2. 启动前端（http://localhost:5173）
 npm install
-
-# 2. 启动开发服务（http://localhost:5173）
 npm run dev
-
-# 3. 生产构建
-npm run build
-npm run preview          # 预览构建产物（http://localhost:4173）
-
-# 4. 端到端测试
-npm run test:e2e         # 全部 26 项
-npm run test:e2e:ui      # Playwright UI 模式
+# Vite 已配置代理把 /api 转发到 http://localhost:8000
+# 若后端在别处，设置 VITE_API_PROXY_TARGET 环境变量
 ```
 
-要求：Node 18+ / 推荐 20+。Playwright 首次运行会自动安装 Chromium。
+### 运行测试
+
+```bash
+# 后端单元 / 集成测试（用内存 SQLite，无需 Postgres）
+cd backend
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+pytest -v
+
+# 前端 e2e（需要后端在跑）
+JWT_SECRET=test-only-32-chars-or-more-aaaaaaaa \
+  DATABASE_URL="sqlite+aiosqlite:///./e2e.db" \
+  python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 &
+cd .. && VITE_API_PROXY_TARGET=http://127.0.0.1:8000 npx playwright test
+```
+
+要求：Node 18+ / Python 3.9+。Playwright 首次运行会自动安装 Chromium。
+
+## 数据持久化
+
+数据全部存在云端 Postgres，每张业务表都有 `user_id` 外键，跨用户访问统一返回 404，
+不会泄漏资源存在性。前端用 Dexie 做本地缓存，登录后从后端拉取一次完整快照，
+之后每次写操作都"写后端 → 写本地"双写以保持 `useLiveQuery` 的响应性。
+
+退出登录会清空本设备的 Dexie 缓存，云端数据不动。
+
+> M3 阶段的本地 Zip 备份 / 镜像目录功能在 M5 中已移除——数据由服务端
+> 负责备份。PDF 装修档案导出（"设置 → 生成 PDF"）保留。
 
 ## 部署
 
-任何静态托管都可以（Vercel / Netlify / GitHub Pages / Cloudflare Pages / 自家 nginx）：
-
-```bash
-npm run build
-# 将 dist/ 整个目录上传即可
-```
-
-`vite.config.ts` 已设置 `base: './'`，所以 dist 可以放在子路径下。
-
-PWA 安装要求：HTTPS + 有 Manifest + 有 Service Worker。本项目已自带；首次访问后浏览器会出现"安装到桌面"的提示。
-
-## 数据备份
-
-筑迹有 3 种数据备份方式，可叠加使用：
-
-1. **完整 Zip 备份 / 恢复** — 设置 → "导出备份 Zip"。Zip 内含 `manifest.json` + `assets/` 原图，可一键再导入还原。**最稳妥**，建议每周一次。
-2. **本地目录镜像**（Chrome / Edge）— 设置 → "选择镜像目录"。授权一个本地文件夹后，数据每次变更 2 秒内同步成 `筑迹/projects/<projectId>/data.json` + `images/`；每天还会在 `筑迹/snapshots/` 下生成一个完整 Zip（保留 30 天）。把目录放在 iCloud / OneDrive / Dropbox 里即可多端同步。
-3. **PDF 装修档案** — 设置 → "生成 PDF"。浏览器打印为 PDF 即得一份可归档的项目档案（节点进度、阶段花费、采购流水）。
-
-清空浏览器数据 / 卸载浏览器 / 换电脑前 **一定先导一份 Zip**。
-
-## 使用手册
-
-详见 [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — 业主向文字说明，每个功能怎么用都讲到了。
+参见 `docker-compose.yml`。生产部署进入 M6 里程碑——Azure App Service +
+现有 `pg-rwnd-prod` 复用，详见 issue 描述。
 
 ## 变更日志
 
