@@ -183,6 +183,17 @@ class NodeWithChecklistOut(NodeOut):
     checklist: list[ChecklistItemOut] = []
 
 
+class NodeWithChecklistIn(NodeIn):
+    """NodeIn + optional inline checklist items.
+
+    Lets the client create a node and its initial checklist in a single
+    round-trip instead of the M5-era N+1 (1 POST node + 1 POST per item).
+    Sent to POST /api/projects/{id}/nodes; response is NodeWithChecklistOut.
+    """
+
+    checklist: list[ChecklistItemIn] = []
+
+
 # ── Purchase ──────────────────────────────────────────────────────
 
 

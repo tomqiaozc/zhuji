@@ -20,9 +20,10 @@ from src.schemas.api import (
     ChecklistItemIn,
     ChecklistItemOut,
     ChecklistItemUpdate,
-    NodeIn,
     NodeOut,
     NodeUpdate,
+    NodeWithChecklistIn,
+    NodeWithChecklistOut,
 )
 
 if TYPE_CHECKING:
@@ -44,21 +45,49 @@ async def list_nodes(
 
 @router.post(
     "/api/projects/{project_id}/nodes",
-    response_model=NodeOut,
+    response_model=NodeWithChecklistOut,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_node(
     project_id: UUID,
-    payload: NodeIn,
+    payload: NodeWithChecklistIn,
     user: User = Depends(get_current_user),
     db: "AsyncSession" = Depends(get_db),
-) -> NodeOut:
+) -> NodeWithChecklistOut:
+    """Create a node plus its initial checklist in one transaction.
+
+    The checklist field is optional and defaults to []; legacy callers
+    posting NodeIn-shaped bodies still work because every checklist
+    field on NodeWithChecklistIn has a default. Frontend uses this to
+    avoid the M5-era N+1 (1 POST node + 1 POST per checklist item).
+    """
     await get_user_project(db, user, project_id)
-    node = Node(project_id=project_id, **payload.model_dump(exclude_unset=True))
+    node_fields = payload.model_dump(exclude_unset=True, exclude={"checklist"})
+    node = Node(project_id=project_id, **node_fields)
     db.add(node)
+    await db.flush()  # need node.id for the checklist FKs
+
+    items: list[ChecklistItem] = []
+    for i, c in enumerate(payload.checklist):
+        item = ChecklistItem(
+            node_id=node.id,
+            text=c.text,
+            done=c.done,
+            note=c.note,
+            order=i,
+        )
+        db.add(item)
+        items.append(item)
+
     await db.commit()
     await db.refresh(node)
-    return NodeOut.model_validate(node)
+    for item in items:
+        await db.refresh(item)
+
+    return NodeWithChecklistOut(
+        **NodeOut.model_validate(node).model_dump(),
+        checklist=[ChecklistItemOut.model_validate(i) for i in items],
+    )
 
 
 @router.get("/api/nodes/{node_id}", response_model=NodeOut)

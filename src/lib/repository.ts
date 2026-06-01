@@ -271,6 +271,9 @@ export async function createNode(
   input: Omit<DecorNode, 'id' | 'projectId' | 'checklist'>,
   checklist: Array<{ text: string; done?: boolean; note?: string }> = [],
 ): Promise<DecorNode> {
+  // Inline checklist in the create-node payload — one round-trip instead
+  // of the M5-era N+1 (POST node + POST per item). Server returns the
+  // node with its checklist already populated.
   const tempId = uid('tmp-node')
   const placeholder: DecorNode = {
     ...input,
@@ -288,24 +291,20 @@ export async function createNode(
       await cacheNode(placeholder)
     },
     async () => {
-      const out = await api.post<NodeOut>(
-        `/api/projects/${projectId}/nodes`,
-        nodeToWire({ ...input, stage: input.stage, name: input.name }),
-      )
-      const created: DecorNode = nodeFromWire(out, [])
-      // Create checklist items in order, sequentially to keep `order` correct.
-      const items: ChecklistItem[] = []
-      for (let i = 0; i < checklist.length; i++) {
-        const c = checklist[i]
-        const co = await api.post<ChecklistItemOut>(`/api/nodes/${out.id}/checklist`, {
+      const body = {
+        ...nodeToWire({ ...input, stage: input.stage, name: input.name }),
+        checklist: checklist.map((c, i) => ({
           text: c.text,
           done: !!c.done,
           note: c.note ?? null,
           order: i,
-        })
-        items.push(checklistFromWire(co))
+        })),
       }
-      created.checklist = items
+      const out = await api.post<NodeOut & { checklist: ChecklistItemOut[] }>(
+        `/api/projects/${projectId}/nodes`,
+        body,
+      )
+      const created: DecorNode = nodeFromWire(out, out.checklist.map(checklistFromWire))
       await db.transaction('rw', db.nodes, async () => {
         await db.nodes.delete(tempId)
         await db.nodes.put(created)

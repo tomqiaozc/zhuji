@@ -17,12 +17,17 @@ export class ZhujiDB extends Dexie {
       assets: 'id, projectId, refType, refId, [refType+refId]',
       reminders: 'id, projectId, nodeId, triggerAt, done',
     })
-    // v2: drop the unused `assets` store. Images are stored in Azure
-    // Blob Storage server-side since M6 — nothing writes to the local
-    // Dexie table anymore. Existing clients migrate cleanly: passing
-    // `null` for the store name tells Dexie to delete it.
+    // v2:
+    //   1. drop the unused `assets` store — images are stored in Azure
+    //      Blob Storage server-side since M6 and nothing writes to the
+    //      local Dexie table anymore. Passing `null` deletes the store.
+    //   2. add [projectId+status] composite index on `nodes` so dashboard
+    //      queries like "doing nodes for this project" and "done count"
+    //      hit the index instead of scanning every node in the project.
     this.version(2).stores({
       assets: null,
+      nodes:
+        'id, projectId, stage, order, status, [projectId+order], [projectId+status]',
     })
   }
 }

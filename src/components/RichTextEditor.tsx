@@ -13,6 +13,7 @@ function exec(cmd: string, arg?: string) {
 }
 
 const DEBOUNCE_MS = 300
+const UNDO_STACK_LIMIT = 50
 
 export function RichTextEditor({ value, onChange, placeholder }: Props) {
   const ref = useRef<HTMLDivElement>(null)
@@ -30,6 +31,11 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
   // entire document. Tracked via a selectionchange listener so the button
   // updates as the caret moves.
   const [hasSelection, setHasSelection] = useState(false)
+  // Undo history. Browsers have their own contentEditable undo, but
+  // toolbar-driven edits (execCommand) and the custom "clear formatting"
+  // path can break it; keep an explicit stack so Cmd/Ctrl-Z and the ↶
+  // button always restore the last committed state.
+  const undoStackRef = useRef<string[]>([])
 
   // Sync external value changes into the DOM, but not when the change is
   // just our own debounced commit coming back through the parent's state.
@@ -69,6 +75,16 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
     return () => document.removeEventListener('selectionchange', recompute)
   }, [])
 
+  function pushUndoSnapshot() {
+    const el = ref.current
+    if (!el) return
+    const snap = el.innerHTML
+    const stack = undoStackRef.current
+    if (stack.length && stack[stack.length - 1] === snap) return
+    stack.push(snap)
+    if (stack.length > UNDO_STACK_LIMIT) stack.shift()
+  }
+
   function commitNow() {
     const el = ref.current
     if (!el) return
@@ -90,6 +106,47 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
     }, DEBOUNCE_MS)
   }
 
+  function undo() {
+    const el = ref.current
+    if (!el) return
+    const stack = undoStackRef.current
+    const prev = stack.pop()
+    if (prev === undefined) return
+    el.innerHTML = prev
+    commitNow()
+  }
+
+  /**
+   * Strip formatting from the current selection without `execCommand`.
+   *
+   * The legacy "清除" button used `document.execCommand('removeFormat', …)`,
+   * which is deprecated and behaves inconsistently across engines. We
+   * replicate the useful subset: collapse the current selection's HTML
+   * down to its text content. If the user has no selection (caret only),
+   * do nothing — a no-op is safer than wiping the whole field.
+   */
+  function clearSelectionFormat() {
+    const el = ref.current
+    if (!el) return
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0) return
+    const range = sel.getRangeAt(0)
+    if (range.collapsed) return
+    // Snapshot before we mutate so undo works.
+    pushUndoSnapshot()
+    const text = range.toString()
+    range.deleteContents()
+    if (text) {
+      const node = document.createTextNode(text)
+      range.insertNode(node)
+      range.setStartAfter(node)
+      range.setEndAfter(node)
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
+    commitNow()
+  }
+
   function btn(label: string, cmd: string, arg?: string, title?: string) {
     return (
       <button
@@ -97,6 +154,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
         title={title ?? label}
         onMouseDown={(e) => {
           e.preventDefault()
+          pushUndoSnapshot()
           exec(cmd, arg)
           // Toolbar-driven edits are discrete actions; commit immediately
           // so toolbar feedback (e.g. tab away, save) sees the new state.
@@ -106,6 +164,14 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
         {label}
       </button>
     )
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    const mod = e.metaKey || e.ctrlKey
+    if (mod && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault()
+      undo()
+    }
   }
 
   return (
@@ -124,6 +190,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
             e.preventDefault()
             const url = prompt('链接 URL')
             if (url) {
+              pushUndoSnapshot()
               exec('createLink', url)
               commitNow()
             }
@@ -133,16 +200,27 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
         </button>
         <button
           type="button"
+        <button
+          type="button"
           title={hasSelection ? '清除选中文本的格式' : '请先选中文字再清除格式'}
           disabled={!hasSelection}
           onMouseDown={(e) => {
             e.preventDefault()
             if (!hasSelection) return
-            exec('removeFormat')
-            commitNow()
+            clearSelectionFormat()
           }}
         >
           清除选中格式
+        </button>
+        <button
+          type="button"
+          title="撤销 (Ctrl/Cmd+Z)"
+          onMouseDown={(e) => {
+            e.preventDefault()
+            undo()
+          }}
+        >
+          ↶
         </button>
       </div>
       <div
@@ -150,7 +228,11 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
         className="rt-editor"
         contentEditable
         suppressContentEditableWarning
-        onInput={scheduleCommit}
+        onInput={() => {
+          pushUndoSnapshot()
+          scheduleCommit()
+        }}
+        onKeyDown={onKeyDown}
         onBlur={commitNow}
         data-placeholder={placeholder}
       />
