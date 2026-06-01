@@ -8,6 +8,17 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
+  server: {
+    // Proxy API calls to the FastAPI backend in dev so the frontend can
+    // hit `/api/...` paths directly. Override the target with
+    // VITE_API_PROXY_TARGET (e.g. when the backend is on another host).
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_PROXY_TARGET ?? 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({

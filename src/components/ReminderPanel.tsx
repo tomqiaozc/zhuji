@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
-import { uid } from '@/lib/uid'
 import { ensureNotificationPermission } from '@/lib/reminders'
+import {
+  createReminder,
+  deleteReminder,
+  updateReminder,
+} from '@/lib/repository'
 import type { Reminder } from '@/types'
 
 interface Props {
@@ -46,16 +50,13 @@ export function ReminderPanel({ projectId, onClose }: Props) {
 
   async function add() {
     if (!projectId || !title.trim() || !triggerAt) return
-    const r: Reminder = {
-      id: uid('rem'),
-      projectId,
+    await createReminder(projectId, {
       nodeId: nodeId || undefined,
       title: title.trim(),
       triggerAt: new Date(triggerAt).toISOString(),
       repeated,
       done: false,
-    }
-    await db.reminders.add(r)
+    })
     setTitle('')
     setNodeId('')
     setRepeated('none')
@@ -63,11 +64,11 @@ export function ReminderPanel({ projectId, onClose }: Props) {
   }
 
   async function toggleDone(r: Reminder) {
-    await db.reminders.update(r.id, { done: !r.done })
+    await updateReminder(r.id, { done: !r.done })
   }
 
   async function remove(id: string) {
-    await db.reminders.delete(id)
+    await deleteReminder(id)
   }
 
   return (

@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { useApp } from '@/store/app'
+import { useAuth } from '@/store/auth'
+import { clearLocalCache } from '@/lib/repository'
 import type { Project } from '@/types'
 
 interface Props {
@@ -21,6 +24,17 @@ export function Topbar({
   onOpenSearch,
 }: Props) {
   const [menu, setMenu] = useState(false)
+  const user = useAuth((s) => s.user)
+  const clearSession = useAuth((s) => s.clearSession)
+  const resetApp = useApp((s) => s.reset)
+
+  async function handleLogout() {
+    await clearLocalCache()
+    // Clear UI state BEFORE the auth token — otherwise the persisted
+    // currentProjectId leaks into the next account's first render.
+    resetApp()
+    clearSession()
+  }
   return (
     <header className="topbar">
       <button
@@ -94,6 +108,16 @@ export function Topbar({
         >
           🔔
         </button>
+        {user && (
+          <div className="topbar-user">
+            <span data-testid="topbar-user" title="当前账号">
+              👤 {user.username}
+            </span>
+            <button data-testid="topbar-logout" onClick={handleLogout}>
+              退出
+            </button>
+          </div>
+        )}
       </div>
     </header>
   )

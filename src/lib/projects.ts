@@ -1,61 +1,47 @@
-import { db } from '@/db'
 import { getActiveTemplates } from '@/data/userTemplates'
-import type { DecorNode, Project } from '@/types'
-import { uid } from './uid'
+import {
+  createProject as repoCreateProject,
+  createNode as repoCreateNode,
+  deleteProject as repoDeleteProject,
+  hydrateProject,
+} from '@/lib/repository'
+import type { ChecklistItem, Project } from '@/types'
 
-export async function instantiateNodes(projectId: string): Promise<DecorNode[]> {
-  const now = new Date().toISOString()
-  const nodes: DecorNode[] = []
+/**
+ * Create a project (server-side) and instantiate the active stage templates
+ * as 62 nodes + each node's checklist items. Returns the new project once
+ * the local cache has caught up — UI views can `useLiveQuery` immediately.
+ */
+export async function createProject(input: Omit<Project, 'id' | 'createdAt'>): Promise<Project> {
+  const project = await repoCreateProject(input)
   let order = 0
   for (const stage of getActiveTemplates()) {
     for (const n of stage.nodes) {
-      nodes.push({
-        id: uid('node'),
-        projectId,
-        stage: stage.stage,
-        name: n.name,
-        order: order++,
-        status: 'todo',
-        tips: n.tips.map((t) => `- ${t}`).join('\n'),
-        tipsModified: false,
-        checklist: n.checklist.map((text) => ({
-          id: uid('chk'),
-          text,
-          done: false,
-        })),
-        notes: '',
-      })
+      // The repository handles checklist creation in order.
+      const checklist: Array<Pick<ChecklistItem, 'text' | 'done'>> = n.checklist.map((text) => ({
+        text,
+        done: false,
+      }))
+      await repoCreateNode(
+        project.id,
+        {
+          stage: stage.stage,
+          name: n.name,
+          order: order++,
+          status: 'todo',
+          tips: n.tips.map((t) => `- ${t}`).join('\n'),
+          tipsModified: false,
+          notes: '',
+        },
+        checklist,
+      )
     }
   }
-  // tag created
-  void now
-  return nodes
-}
-
-export async function createProject(input: Omit<Project, 'id' | 'createdAt'>): Promise<Project> {
-  const project: Project = {
-    ...input,
-    id: uid('proj'),
-    createdAt: new Date().toISOString(),
-  }
-  const nodes = await instantiateNodes(project.id)
-  await db.transaction('rw', db.projects, db.nodes, async () => {
-    await db.projects.add(project)
-    await db.nodes.bulkAdd(nodes)
-  })
+  // Refresh local cache for this project so order / IDs are authoritative.
+  await hydrateProject(project.id)
   return project
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  await db.transaction(
-    'rw',
-    [db.projects, db.nodes, db.purchases, db.assets, db.reminders],
-    async () => {
-      await db.projects.delete(projectId)
-      await db.nodes.where('projectId').equals(projectId).delete()
-      await db.purchases.where('projectId').equals(projectId).delete()
-      await db.assets.where('projectId').equals(projectId).delete()
-      await db.reminders.where('projectId').equals(projectId).delete()
-    },
-  )
+  await repoDeleteProject(projectId)
 }

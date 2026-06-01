@@ -1,44 +1,46 @@
-import { Page, expect } from '@playwright/test'
+import { Page } from '@playwright/test'
 
 /**
- * Clear IndexedDB + localStorage so each test starts from a known empty state.
- * Must be called BEFORE the app's React tree mounts (init script), otherwise
- * we race the auto-open project modal.
+ * Clear localStorage + IndexedDB before the React tree mounts.
+ *
+ * Auth state, persisted Zustand stores, and the Dexie cache all need
+ * to be empty so each test starts from "fresh install".
  */
 export async function freshSession(page: Page) {
   await page.addInitScript(() => {
     try {
-      // Sentinel ensures we wipe ONCE per test (cold start), not on every
-      // navigation/reload — otherwise reload nukes the data we want to verify
-      // survives reload.
       if (window.localStorage.getItem('__zhuji_e2e_wiped__') === '1') return
       window.localStorage.clear()
       window.sessionStorage.clear()
       indexedDB.deleteDatabase('zhuji-db')
       window.localStorage.setItem('__zhuji_e2e_wiped__', '1')
-      // Suppress the first-run NodeWorkspace onboarding overlay so it doesn't
-      // intercept clicks in existing e2e flows.
+      // Suppress the NodeWorkspace first-run overlay so it doesn't
+      // intercept clicks.
       window.localStorage.setItem('zhuji-onboarded-node-workspace-v1', '1')
     } catch {}
   })
 }
 
-/**
- * Open the app, click "Load Demo Project" in the empty-hero welcome screen.
- * Returns once Dashboard is visible with the demo project active.
- */
-export async function loadDemo(page: Page) {
+/** Click the visible auth form's register button and wait until the app loads. */
+export async function registerNewUser(page: Page, username: string) {
   await page.goto('/')
-  // First-run welcome screen (post-M3) replaces the auto-popped modal.
-  await page.getByTestId('empty-hero-demo').click()
-  await expect(page.getByText('示范家 · 89㎡', { exact: false }).first()).toBeVisible()
-  await page.getByRole('button', { name: /总览/ }).first().click()
-  await expect(page.getByText('累计支出')).toBeVisible()
-  // Wait for Dashboard's useLiveQuery to actually return purchases — otherwise
-  // tests that read `.metric .num` race against an empty initial render.
-  await expect(page.locator('.metric .num').first()).not.toHaveText(/¥\s*0\b/, { timeout: 8000 })
+  // The form defaults to "login"; click "去注册" to switch to register mode.
+  await page.getByRole('button', { name: '去注册' }).click()
+  await page.getByTestId('auth-username').fill(username)
+  await page.getByTestId('auth-password').fill('secret-test-1234')
+  await page.getByTestId('auth-submit').click()
+  // EmptyHero shows up once the project list (empty) loads.
+  await page.getByTestId('empty-hero').waitFor({ timeout: 15_000 })
 }
 
-export async function parseMoney(text: string): Promise<number> {
-  return Number(text.replace(/[^0-9.-]/g, ''))
+/** Log in as an existing user (assumes account already registered). */
+export async function loginExistingUser(page: Page, username: string) {
+  await page.goto('/')
+  await page.getByTestId('auth-username').fill(username)
+  await page.getByTestId('auth-password').fill('secret-test-1234')
+  await page.getByTestId('auth-submit').click()
+}
+
+export function uniqueUsername(prefix = 'e2e'): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
 }

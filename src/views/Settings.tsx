@@ -1,18 +1,12 @@
-import { useRef, useState } from 'react'
-import { db } from '@/db'
-import { deleteProject } from '@/lib/projects'
-import { clearAllData, loadDemoProject } from '@/data/seed'
+import { useState } from 'react'
+import { updateProject, deleteProject } from '@/lib/repository'
+import { loadDemoProject } from '@/data/seed'
 import { useApp } from '@/store/app'
+import { useAuth } from '@/store/auth'
 import type { Project, ProjectType } from '@/types'
-import {
-  disableMirror,
-  downloadSnapshotZip,
-  isFsAccessSupported,
-  pickMirrorDir,
-} from '@/lib/fsMirror'
-import { exportFullZip, exportProjectPdf, importFullZip, triggerDownload } from '@/lib/backup'
+import { exportProjectPdf } from '@/lib/backup'
 import { TemplateEditor } from '@/components/TemplateEditor'
-import dayjs from 'dayjs'
+import { clearLocalCache, hydrateEverything } from '@/lib/repository'
 
 interface Props {
   project: Project
@@ -20,7 +14,10 @@ interface Props {
 }
 
 export function Settings({ project, onNewProject }: Props) {
-  const { setProject } = useApp()
+  const setProject = useApp((s) => s.setProject)
+  const resetApp = useApp((s) => s.reset)
+  const user = useAuth((s) => s.user)
+  const clearSession = useAuth((s) => s.clearSession)
   const [name, setName] = useState(project.name)
   const [address, setAddress] = useState(project.address ?? '')
   const [area, setArea] = useState(project.area != null ? String(project.area) : '')
@@ -30,14 +27,12 @@ export function Settings({ project, onNewProject }: Props) {
   const [saved, setSaved] = useState(false)
   const [demoBusy, setDemoBusy] = useState(false)
   const [demoMsg, setDemoMsg] = useState<string | null>(null)
-  const [mirrorMsg, setMirrorMsg] = useState<string | null>(null)
-  const [backupBusy, setBackupBusy] = useState(false)
-  const [backupMsg, setBackupMsg] = useState<string | null>(null)
+  const [syncBusy, setSyncBusy] = useState(false)
+  const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [showTemplates, setShowTemplates] = useState(false)
-  const importInputRef = useRef<HTMLInputElement>(null)
 
   async function save() {
-    await db.projects.update(project.id, {
+    await updateProject(project.id, {
       name: name.trim() || project.name,
       address: address.trim() || undefined,
       area: area ? Number(area) : undefined,
@@ -50,7 +45,7 @@ export function Settings({ project, onNewProject }: Props) {
   }
 
   async function handleDelete() {
-    if (!confirm(`删除项目「${project.name}」？所有节点和采购都会一起删除。`)) return
+    if (!confirm(`删除项目「${project.name}」？所有节点和采购都会一起删除（云端数据也会删除，无法撤销）。`)) return
     await deleteProject(project.id)
     setProject(null)
   }
@@ -64,71 +59,35 @@ export function Settings({ project, onNewProject }: Props) {
       setProject(r.project.id)
       setDemoMsg(`✓ 已加载「${r.project.name}」，含 ${r.nodeCount} 个节点 / ${r.purchaseCount} 笔采购`)
       setTimeout(() => setDemoMsg(null), 3000)
+    } catch (e) {
+      setDemoMsg('✗ ' + ((e as Error)?.message ?? '加载失败'))
     } finally {
       setDemoBusy(false)
     }
   }
 
-  async function handleClearAll() {
-    if (!confirm('确定清空所有数据？\n\n这会删除全部项目、节点、采购记录、图片、提醒，无法撤销。')) return
-    if (!confirm('再确认一次：真的要清空全部本地数据吗？')) return
-    await clearAllData()
-    setProject(null)
-  }
-
-  async function handlePickMirror() {
+  async function handleResync() {
+    if (syncBusy) return
+    setSyncBusy(true)
+    setSyncMsg(null)
     try {
-      const h = await pickMirrorDir()
-      if (h) setMirrorMsg('✓ 已选择目录，数据变更将在 2 秒内自动同步到 筑迹/projects/<projectId>/data.json')
+      await clearLocalCache()
+      await hydrateEverything()
+      setSyncMsg('✓ 已从云端重新拉取数据')
+      setTimeout(() => setSyncMsg(null), 2500)
     } catch (e) {
-      setMirrorMsg('✗ ' + ((e as Error)?.message ?? '选择失败'))
-    }
-  }
-
-  async function handleDisableMirror() {
-    await disableMirror()
-    setMirrorMsg('已停用本地镜像')
-  }
-
-  async function handleDownloadSnapshot() {
-    try {
-      await downloadSnapshotZip()
-      setMirrorMsg('✓ 已下载当前备份 Zip')
-    } catch (e) {
-      setMirrorMsg('✗ ' + ((e as Error)?.message ?? '下载失败'))
-    }
-  }
-
-  async function handleExportZip() {
-    if (backupBusy) return
-    setBackupBusy(true)
-    setBackupMsg(null)
-    try {
-      const blob = await exportFullZip()
-      triggerDownload(blob, `zhuji-backup-${dayjs().format('YYYYMMDD-HHmm')}.zip`)
-      setBackupMsg('✓ 已导出备份压缩包')
-    } catch (e) {
-      setBackupMsg('✗ ' + ((e as Error)?.message ?? '导出失败'))
+      setSyncMsg('✗ ' + ((e as Error)?.message ?? '同步失败'))
     } finally {
-      setBackupBusy(false)
+      setSyncBusy(false)
     }
   }
 
-  async function handleImportZip(file: File) {
-    if (!confirm('导入会清空当前所有本地数据并替换为备份内容，确定继续？')) return
-    setBackupBusy(true)
-    setBackupMsg(null)
-    try {
-      const r = await importFullZip(file)
-      setBackupMsg(
-        `✓ 已导入 ${r.projects} 项目 / ${r.nodes} 节点 / ${r.purchases} 采购 / ${r.assets} 图片`,
-      )
-      setProject(null)
-    } catch (e) {
-      setBackupMsg('✗ ' + ((e as Error)?.message ?? '导入失败'))
-    } finally {
-      setBackupBusy(false)
-    }
+  async function handleLogout() {
+    await clearLocalCache()
+    // Clear UI state too — currentProjectId persists in zhuji-app-state
+    // and would otherwise carry across to the next account's first boot.
+    resetApp()
+    clearSession()
   }
 
   async function handleExportPdf() {
@@ -203,10 +162,32 @@ export function Settings({ project, onNewProject }: Props) {
         </div>
 
         <div className="col-12 card">
+          <div className="card-title">账号</div>
+          <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
+            当前登录：<strong data-testid="current-username">{user?.username ?? '—'}</strong>
+            。退出登录会清空本设备的缓存，云端数据不会受影响。
+          </p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn"
+              data-testid="btn-resync"
+              onClick={handleResync}
+              disabled={syncBusy}
+            >
+              {syncBusy ? '同步中…' : '从云端重新同步'}
+            </button>
+            <button className="btn" data-testid="btn-logout" onClick={handleLogout}>
+              退出登录
+            </button>
+            {syncMsg && <span style={{ fontSize: 13 }}>{syncMsg}</span>}
+          </div>
+        </div>
+
+        <div className="col-12 card">
           <div className="card-title">演示数据</div>
           <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
-            一键加载一个"已经装到一半"的真实感样本项目（89㎡ 毛坯，约 30 笔采购），
-            方便快速体验各项功能。可重复加载，每次新建一个独立项目，不影响你已有的数据。
+            一键加载一个"已经装到一半"的真实感样本项目（89㎡ 毛坯，11 阶段 / 62 节点 /
+            约 30 笔采购），方便快速体验各项功能。可重复加载，每次新建一个独立项目，不影响你已有的数据。
           </p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button
@@ -219,72 +200,6 @@ export function Settings({ project, onNewProject }: Props) {
             </button>
             {demoMsg && <span style={{ color: 'var(--success)', fontSize: 13 }}>{demoMsg}</span>}
           </div>
-        </div>
-
-        <div className="col-12 card">
-          <div className="card-title">完整备份与恢复</div>
-          <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
-            导出包含所有项目、节点、采购、提醒和图片的 Zip 压缩包；也可以从一个备份包导入还原（会清空当前数据）。
-          </p>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={handleExportZip} disabled={backupBusy}>
-              {backupBusy ? '处理中…' : '导出备份 Zip'}
-            </button>
-            <button
-              className="btn"
-              onClick={() => importInputRef.current?.click()}
-              disabled={backupBusy}
-            >
-              从 Zip 导入…
-            </button>
-            <input
-              ref={importInputRef}
-              type="file"
-              accept=".zip,application/zip"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) void handleImportZip(f)
-                e.target.value = ''
-              }}
-            />
-            {backupMsg && <span style={{ fontSize: 13 }}>{backupMsg}</span>}
-          </div>
-        </div>
-
-        <div className="col-12 card">
-          <div className="card-title">本地镜像备份（Chrome / Edge）</div>
-          <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
-            选择本机一个目录后，数据每次变更都会在 2 秒内同步到 <code>筑迹/projects/&lt;projectId&gt;/data.json</code>，
-            图片放在同目录的 <code>images/</code> 下；每天还会在 <code>筑迹/snapshots/</code> 下生成一个完整 Zip（保留 30 天）。
-            适合放入 iCloud / OneDrive / Dropbox 文件夹做多端同步。
-          </p>
-          {isFsAccessSupported() ? (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button className="btn btn-primary" onClick={handlePickMirror}>
-                选择镜像目录…
-              </button>
-              <button className="btn" onClick={handleDisableMirror}>
-                停用镜像
-              </button>
-              {mirrorMsg && <span style={{ fontSize: 13 }}>{mirrorMsg}</span>}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ fontSize: 13, color: 'var(--text-mute)', flexBasis: '100%' }}>
-                当前浏览器不支持 File System Access API（推荐使用 Chrome 或 Edge）。
-                你仍然可以手动下载当前数据快照 Zip。
-              </div>
-              <button
-                className="btn btn-primary"
-                data-testid="btn-download-snapshot"
-                onClick={handleDownloadSnapshot}
-              >
-                下载当前备份 Zip
-              </button>
-              {mirrorMsg && <span style={{ fontSize: 13 }}>{mirrorMsg}</span>}
-            </div>
-          )}
         </div>
 
         <div className="col-12 card">
@@ -317,18 +232,11 @@ export function Settings({ project, onNewProject }: Props) {
         <div className="col-12 card">
           <div className="card-title">危险操作</div>
           <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
-            删除当前项目会同时删除其下所有节点、采购、图片，无法撤销。
+            删除当前项目会同时删除其下所有节点、采购、图片，云端无法撤销。
           </p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-danger" onClick={handleDelete}>
               删除当前项目
-            </button>
-            <button
-              className="btn btn-danger"
-              data-testid="btn-clear-all"
-              onClick={handleClearAll}
-            >
-              清空所有数据
             </button>
           </div>
         </div>
