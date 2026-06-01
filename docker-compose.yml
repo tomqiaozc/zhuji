@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zhuji
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: zhuji
+    ports:
+      - "5432:5432"
+    volumes:
+      - zhuji_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zhuji"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://zhuji:devpassword@postgres:5432/zhuji
+      # JWT_SECRET is REQUIRED — must come from the host env (or a .env
+      # file next to this compose file). No default; the backend refuses
+      # to start without one. Local dev: `export JWT_SECRET=$(openssl rand -hex 32)`.
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set (try: export JWT_SECRET=$(openssl rand -hex 32))}
+      CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000","http://localhost:4173"]'
+      LOG_LEVEL: INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  zhuji_pg_data:

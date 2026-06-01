@@ -10,3 +10,14 @@ tsconfig.tsbuildinfo
 playwright-report
 test-results
 playwright/.cache
+
+# Python / FastAPI backend
+backend/.venv
+backend/.env
+backend/.pytest_cache
+backend/.ruff_cache
+backend/.coverage
+backend/htmlcov
+__pycache__
+*.pyc
+*.egg-info
