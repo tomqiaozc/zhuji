@@ -9,5 +9,4 @@ htmlcov
 *.db
 e2e.db
 .env
-README.md
 tests
