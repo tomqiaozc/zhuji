@@ -280,7 +280,7 @@ export async function createNode(
       id: `${tempId}-c${i}`,
       text: c.text,
       done: !!c.done,
-      note: c.note,
+      note: c.note ?? undefined,
     })),
   }
   return withOptimistic(
@@ -325,50 +325,46 @@ export async function updateNode(
   // Checklist is updated via dedicated helpers below.
   const fieldPatch = nodePatchToWire(patch)
   const existing = await db.nodes.get(nodeId)
+  const hasFieldPatch = Object.keys(fieldPatch).length > 0
 
-  // Optimistic field patch: merge into the cached row immediately so
-  // toggles (status, dates, notes) render without waiting for HTTP.
-  if (existing && Object.keys(fieldPatch).length > 0) {
-    const optimistic: DecorNode = {
-      ...existing,
-      ...patch,
-      checklist: existing.checklist, // checklist owned by replaceChecklist below
-    }
-    await cacheNode(optimistic)
-  }
-
-  try {
-    let updated: DecorNode
-    if (Object.keys(fieldPatch).length > 0) {
-      const out = await api.patch<NodeOut>(`/api/nodes/${nodeId}`, fieldPatch)
-      updated = nodeFromWire(out, existing?.checklist ?? [])
-    } else if (existing) {
-      updated = existing
-    } else {
-      // Cold start with no field patch — pull the node + its checklist.
-      // Only hit in the corner case where another tab evicted the cache
-      // mid-mutation; ordinary use never reaches here.
-      const nodeOut = await api.get<NodeOut>(`/api/nodes/${nodeId}`)
-      const items = await api.get<ChecklistItemOut[]>(`/api/nodes/${nodeId}/checklist`)
-      updated = nodeFromWire(nodeOut, items.map(checklistFromWire))
-    }
-    if (patch.checklist !== undefined) {
-      updated.checklist = await replaceChecklist(nodeId, patch.checklist)
-    }
-    await cacheNode(updated)
-    return updated
-  } catch (err) {
-    if (existing) {
-      try {
-        await cacheNode(existing)
-      } catch {
-        // best-effort restore
+  return withOptimistic(
+    async () => {
+      // Optimistic field patch: merge into the cached row immediately so
+      // toggles (status, dates, notes) render without waiting for HTTP.
+      if (existing && hasFieldPatch) {
+        const optimistic: DecorNode = {
+          ...existing,
+          ...patch,
+          checklist: existing.checklist, // checklist owned by replaceChecklist below
+        }
+        await cacheNode(optimistic)
       }
-    }
-    const msg = (err as Error)?.message ?? '操作失败'
-    pushToast(`${msg}（已撤回本地更改）`, 'error', 5000)
-    throw err
-  }
+    },
+    async () => {
+      let updated: DecorNode
+      if (hasFieldPatch) {
+        const out = await api.patch<NodeOut>(`/api/nodes/${nodeId}`, fieldPatch)
+        updated = nodeFromWire(out, existing?.checklist ?? [])
+      } else if (existing) {
+        updated = existing
+      } else {
+        // Cold start with no field patch — pull the node + its checklist.
+        // Only hit in the corner case where another tab evicted the cache
+        // mid-mutation; ordinary use never reaches here.
+        const nodeOut = await api.get<NodeOut>(`/api/nodes/${nodeId}`)
+        const items = await api.get<ChecklistItemOut[]>(`/api/nodes/${nodeId}/checklist`)
+        updated = nodeFromWire(nodeOut, items.map(checklistFromWire))
+      }
+      if (patch.checklist !== undefined) {
+        updated.checklist = await replaceChecklist(nodeId, patch.checklist)
+      }
+      await cacheNode(updated)
+      return updated
+    },
+    async () => {
+      if (existing) await cacheNode(existing)
+    },
+  )
 }
 
 export async function deleteNode(nodeId: string): Promise<void> {
