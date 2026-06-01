@@ -20,7 +20,7 @@ from src.api._ownership import (
     get_user_project,
     get_user_purchase,
 )
-from src.auth.dependencies import get_current_user
+from src.auth.dependencies import get_asset_viewer_user, get_current_user
 from src.config import settings
 from src.db.session import get_db
 from src.models.base import Asset, User
@@ -137,16 +137,17 @@ async def delete_asset(
 @router.get("/api/assets/{asset_id}/content")
 async def get_asset_content(
     asset_id: UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_asset_viewer_user),
     db: "AsyncSession" = Depends(get_db),
 ) -> Response:
     """Auth-protected blob proxy.
 
     The blob container is private (装修照片属隐私), so the URL we
     persist isn't usable directly from the browser. This endpoint
-    re-streams the bytes after re-checking JWT + ownership. Accepts
-    the JWT either via ``Authorization: Bearer ...`` (preferred) or
-    via ``?token=...`` (so ``<img src>`` works without custom headers).
+    re-streams the bytes after re-checking ownership. Accepts the main
+    API JWT via ``Authorization: Bearer ...`` OR a short-lived
+    asset-viewer token via ``?token=...`` (so ``<img src>`` works
+    without leaking the main JWT into URLs).
     """
     asset = await get_user_asset(db, user, asset_id)
     _ensure_storage()

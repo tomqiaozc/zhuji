@@ -7,6 +7,7 @@ import type { Project, ProjectType } from '@/types'
 import { exportProjectPdf } from '@/lib/backup'
 import { TemplateEditor } from '@/components/TemplateEditor'
 import { clearLocalCache, hydrateEverything } from '@/lib/repository'
+import { clearAssetViewerToken } from '@/lib/api'
 
 interface Props {
   project: Project
@@ -84,6 +85,7 @@ export function Settings({ project, onNewProject }: Props) {
 
   async function handleLogout() {
     await clearLocalCache()
+    clearAssetViewerToken()
     // Clear UI state too — currentProjectId persists in zhuji-app-state
     // and would otherwise carry across to the next account's first boot.
     resetApp()

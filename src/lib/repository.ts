@@ -15,7 +15,7 @@
  */
 
 import { db } from '@/db'
-import { api, authedUrl } from '@/lib/api'
+import { api, authedUrl, ensureAssetViewerToken } from '@/lib/api'
 import {
   type ChecklistItemOut,
   type LoadDemoResponse,
@@ -245,9 +245,74 @@ export async function deleteNode(nodeId: string): Promise<void> {
 // ─── Checklist ───────────────────────────────────────────────────
 
 /**
+ * Single-item helpers — used by the UI for toggle / add / remove so a
+ * checkbox click is one PATCH instead of a full-list diff.
+ *
+ * They all keep the cached node in sync by reading the existing node,
+ * applying the change locally, and writing the result back to Dexie so
+ * `useLiveQuery` consumers update in place.
+ */
+
+async function patchCachedNodeChecklist(
+  nodeId: string,
+  mutate: (items: ChecklistItem[]) => ChecklistItem[],
+): Promise<ChecklistItem[]> {
+  const node = await db.nodes.get(nodeId)
+  if (!node) return []
+  const next = mutate(node.checklist)
+  await db.nodes.put({ ...node, checklist: next })
+  return next
+}
+
+/** Toggle done (or update any subset of fields) on a single checklist item. */
+export async function patchChecklistItem(
+  nodeId: string,
+  itemId: string,
+  patch: Partial<Pick<ChecklistItem, 'text' | 'done' | 'note'>>,
+): Promise<ChecklistItem> {
+  const body: Record<string, unknown> = {}
+  if (patch.text !== undefined) body.text = patch.text
+  if (patch.done !== undefined) body.done = patch.done
+  if (patch.note !== undefined) body.note = patch.note ?? null
+  const out = await api.patch<ChecklistItemOut>(`/api/checklist/${itemId}`, body)
+  const updated = checklistFromWire(out)
+  await patchCachedNodeChecklist(nodeId, (items) =>
+    items.map((c) => (c.id === itemId ? updated : c)),
+  )
+  return updated
+}
+
+/** Append a checklist item to a node and mirror it into the cache. */
+export async function addChecklistItem(
+  nodeId: string,
+  input: { text: string; done?: boolean; note?: string | null },
+): Promise<ChecklistItem> {
+  const node = await db.nodes.get(nodeId)
+  const order = node ? node.checklist.length : 0
+  const out = await api.post<ChecklistItemOut>(`/api/nodes/${nodeId}/checklist`, {
+    text: input.text,
+    done: !!input.done,
+    note: input.note ?? null,
+    order,
+  })
+  const created = checklistFromWire(out)
+  await patchCachedNodeChecklist(nodeId, (items) => [...items, created])
+  return created
+}
+
+/** Delete a single checklist item and drop it from the cache. */
+export async function removeChecklistItem(nodeId: string, itemId: string): Promise<void> {
+  await api.delete<void>(`/api/checklist/${itemId}`)
+  await patchCachedNodeChecklist(nodeId, (items) => items.filter((c) => c.id !== itemId))
+}
+
+/**
  * Replace a node's checklist entirely. Diffs item-by-item so we keep
  * existing item IDs stable (UI uses them as React keys) and don't blow
  * the network bill on every keystroke. Returns the post-write list.
+ *
+ * Kept for bulk paths (template seeding, backup restore) — the UI's
+ * toggle/add/remove use the single-item helpers above instead.
  */
 export async function replaceChecklist(
   nodeId: string,
@@ -431,6 +496,9 @@ function assetFromWire(a: AssetOut): AssetSummary {
 }
 
 export async function listAssets(projectId: string): Promise<AssetSummary[]> {
+  // Mint / refresh the short-TTL viewer token BEFORE wiring URLs so
+  // `<img src>` has a working `?token=` from the first render.
+  await ensureAssetViewerToken()
   const rows = await api.get<AssetOut[]>(`/api/projects/${projectId}/assets`)
   return rows.map(assetFromWire)
 }
@@ -446,6 +514,9 @@ export async function uploadAsset(
   form.set('ref_id', refId)
   form.set('file', file)
   const out = await api.upload<AssetOut>(`/api/projects/${projectId}/assets`, form)
+  // The upload response feeds straight into the gallery state; make
+  // sure the viewer token is in cache so its `<img src>` works.
+  await ensureAssetViewerToken()
   return assetFromWire(out)
 }
 

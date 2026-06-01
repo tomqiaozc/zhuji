@@ -8,10 +8,21 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
 from src.auth.dependencies import get_current_user
-from src.auth.security import create_access_token, hash_password, verify_password
+from src.auth.security import (
+    create_access_token,
+    create_asset_viewer_token,
+    hash_password,
+    verify_password,
+)
 from src.db.session import get_db
 from src.models.base import User
-from src.schemas.api import LoginRequest, RegisterRequest, TokenResponse, UserOut
+from src.schemas.api import (
+    AssetViewerTokenResponse,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserOut,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -51,3 +62,17 @@ async def login(payload: LoginRequest, db: "AsyncSession" = Depends(get_db)) -> 
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)) -> UserOut:
     return UserOut.model_validate(user)
+
+
+@router.post("/asset-viewer-token", response_model=AssetViewerTokenResponse)
+async def issue_asset_viewer_token(
+    user: User = Depends(get_current_user),
+) -> AssetViewerTokenResponse:
+    """Mint a short-TTL token for ``<img src>`` to use in URLs.
+
+    The frontend caches the token in memory and refreshes it before
+    expiry. Scoped via the ``typ`` claim so a leaked image URL only
+    grants read access to the asset proxy, never the rest of the API.
+    """
+    token, ttl_seconds = create_asset_viewer_token(user.id)
+    return AssetViewerTokenResponse(token=token, expires_in=ttl_seconds)

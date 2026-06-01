@@ -3,10 +3,14 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
 import { deletePurchase } from '@/lib/cascade'
-import { updateNode } from '@/lib/repository'
+import {
+  addChecklistItem,
+  patchChecklistItem,
+  removeChecklistItem,
+  updateNode,
+} from '@/lib/repository'
 import { useApp } from '@/store/app'
 import { fmtMoney } from '@/lib/format'
-import { uid } from '@/lib/uid'
 import type { DecorNode, NodeStatus, Project } from '@/types'
 import { RichTextEditor } from '@/components/RichTextEditor'
 import { NodeImagesPanel } from '@/components/NodeImagesPanel'
@@ -399,20 +403,19 @@ function ChecklistPanel({ node }: { node: DecorNode }) {
   const pct = total > 0 ? (done / total) * 100 : 0
 
   async function toggle(id: string) {
-    const items = node.checklist.map((c) => (c.id === id ? { ...c, done: !c.done } : c))
-    await updateNode(node.id, { checklist: items })
+    const item = node.checklist.find((c) => c.id === id)
+    if (!item) return
+    await patchChecklistItem(node.id, id, { done: !item.done })
   }
 
   async function remove(id: string) {
-    const items = node.checklist.filter((c) => c.id !== id)
-    await updateNode(node.id, { checklist: items })
+    await removeChecklistItem(node.id, id)
   }
 
   async function add() {
     const t = newText.trim()
     if (!t) return
-    const items = [...node.checklist, { id: uid('chk'), text: t, done: false }]
-    await updateNode(node.id, { checklist: items })
+    await addChecklistItem(node.id, { text: t, done: false })
     setNewText('')
     setAdding(false)
   }

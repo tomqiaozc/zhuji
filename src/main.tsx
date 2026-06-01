@@ -4,7 +4,7 @@ import App from './App'
 import { AuthPage } from './views/AuthPage'
 import { useApp } from './store/app'
 import { useAuth } from './store/auth'
-import { configureApi } from './lib/api'
+import { clearAssetViewerToken, configureApi } from './lib/api'
 import { clearLocalCache, hydrateEverything } from './lib/repository'
 import './styles.css'
 
@@ -16,6 +16,7 @@ configureApi({
   getToken: () => useAuth.getState().token,
   onUnauthorized: () => {
     void clearLocalCache()
+    clearAssetViewerToken()
     useApp.getState().reset()
     useAuth.getState().clearSession()
   },
