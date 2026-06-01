@@ -380,3 +380,66 @@ export async function loadDemoProject(): Promise<LoadDemoResult> {
     totalSpent: out.stats.total_spent,
   }
 }
+
+// ─── Assets (M6: Azure Blob Storage) ─────────────────────────────
+
+export interface AssetSummary {
+  id: string
+  projectId: string
+  refType: 'node' | 'purchase'
+  refId: string
+  blobUrl: string
+  fileName: string
+  mimeType: string
+  size: number
+  createdAt: string
+}
+
+interface AssetOut {
+  id: string
+  project_id: string
+  ref_type: string
+  ref_id: string
+  blob_url: string
+  file_name: string
+  mime_type: string
+  size: number
+  created_at: string
+}
+
+function assetFromWire(a: AssetOut): AssetSummary {
+  return {
+    id: a.id,
+    projectId: a.project_id,
+    refType: a.ref_type as 'node' | 'purchase',
+    refId: a.ref_id,
+    blobUrl: a.blob_url,
+    fileName: a.file_name,
+    mimeType: a.mime_type,
+    size: a.size,
+    createdAt: a.created_at,
+  }
+}
+
+export async function listAssets(projectId: string): Promise<AssetSummary[]> {
+  const rows = await api.get<AssetOut[]>(`/api/projects/${projectId}/assets`)
+  return rows.map(assetFromWire)
+}
+
+export async function uploadAsset(
+  projectId: string,
+  refType: 'node' | 'purchase',
+  refId: string,
+  file: File,
+): Promise<AssetSummary> {
+  const form = new FormData()
+  form.set('ref_type', refType)
+  form.set('ref_id', refId)
+  form.set('file', file)
+  const out = await api.upload<AssetOut>(`/api/projects/${projectId}/assets`, form)
+  return assetFromWire(out)
+}
+
+export async function deleteAsset(assetId: string): Promise<void> {
+  await api.delete<void>(`/api/assets/${assetId}`)
+}

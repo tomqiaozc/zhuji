@@ -91,4 +91,37 @@ export const api = {
   post: <T>(p: string, body?: unknown) => request<T>('POST', p, body),
   patch: <T>(p: string, body?: unknown) => request<T>('PATCH', p, body),
   delete: <T = void>(p: string) => request<T>('DELETE', p),
+  /** Multipart upload — lets `fetch` set the Content-Type with the
+   *  generated MIME boundary. Token + 401 handling still apply. */
+  upload: async <T>(path: string, form: FormData): Promise<T> => {
+    const headers: Record<string, string> = { Accept: 'application/json' }
+    const token = getToken()
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    const res = await fetch(BASE + path, {
+      method: 'POST',
+      headers,
+      body: form,
+    })
+    if (res.status === 401) onUnauthorized()
+    if (res.status === 204) return undefined as unknown as T
+    const text = await res.text()
+    let parsed: unknown = null
+    if (text) {
+      try {
+        parsed = JSON.parse(text)
+      } catch {
+        parsed = text
+      }
+    }
+    if (!res.ok) {
+      const detail =
+        (parsed && typeof parsed === 'object' && 'detail' in parsed
+          ? String((parsed as { detail: unknown }).detail)
+          : '') ||
+        (typeof parsed === 'string' ? parsed : '') ||
+        `HTTP ${res.status}`
+      throw new ApiError(res.status, detail, parsed)
+    }
+    return parsed as T
+  },
 }

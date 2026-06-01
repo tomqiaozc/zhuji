@@ -12,7 +12,7 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import select
 
-from src.models.base import ChecklistItem, Node, Project, Purchase, Reminder, User
+from src.models.base import Asset, ChecklistItem, Node, Project, Purchase, Reminder, User
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -73,3 +73,15 @@ async def get_user_reminder(db: "AsyncSession", user: User, reminder_id: UUID) -
     if r is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="提醒不存在")
     return r
+
+
+async def get_user_asset(db: "AsyncSession", user: User, asset_id: UUID) -> Asset:
+    result = await db.execute(
+        select(Asset)
+        .join(Project, Project.id == Asset.project_id)
+        .where(Asset.id == asset_id, Project.user_id == user.id)
+    )
+    a = result.scalar_one_or_none()
+    if a is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="资源不存在")
+    return a

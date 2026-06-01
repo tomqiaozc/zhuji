@@ -250,4 +250,19 @@ class LoadDemoResponse(BaseModel):
     stats: dict
 
 
+# ── Asset ─────────────────────────────────────────────────────────
+
+
+class AssetOut(_ORM):
+    id: UUID
+    project_id: UUID
+    ref_type: str
+    ref_id: UUID
+    blob_url: str
+    file_name: str
+    mime_type: str
+    size: int
+    created_at: datetime
+
+
 TokenResponse.model_rebuild()

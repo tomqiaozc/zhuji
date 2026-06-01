@@ -65,8 +65,16 @@ cd .. && VITE_API_PROXY_TARGET=http://127.0.0.1:8000 npx playwright test
 
 ## 部署
 
-参见 `docker-compose.yml`。生产部署进入 M6 里程碑——Azure App Service +
-现有 `pg-rwnd-prod` 复用，详见 issue 描述。
+`docker compose up --build` 跑本地。生产部署到 Azure（M6）使用
+Bicep + GitHub Actions，复用业主现有 `rg-rewind-ea` 资源组下的
+App Service Plan / PostgreSQL / Key Vault / Storage / App Insights。
+
+- 基础设施：`infra/main.bicep` + `infra/modules/appservice.bicep`
+- CI / CD：`.github/workflows/{ci,deploy}.yml`
+- 完整操作清单（业主一次性 az login / SP / KV secrets / 数据库创建）：
+  **[infra/README.md](infra/README.md)**
+
+新增云端成本 < ¥5/月（仅 Storage 流量；App Service 复用现有 Plan）。
 
 ## 变更日志
 

@@ -32,6 +32,12 @@ class Settings(BaseSettings):
         "http://localhost:4173",
     ]
 
+    # Asset storage (Azure Blob). Optional in dev — when unset the
+    # /api/.../assets routes return 503 instead of crashing.
+    azure_storage_connection_string: str = ""
+    azure_storage_container_name: str = "zhuji-assets"
+    max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB per file
+
     # Database pool
     db_pool_size: int = 5
     db_max_overflow: int = 10

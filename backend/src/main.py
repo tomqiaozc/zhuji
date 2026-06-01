@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.assets import router as assets_router
 from src.api.auth import router as auth_router
 from src.api.demo import router as demo_router
 from src.api.nodes import router as nodes_router
@@ -39,6 +40,7 @@ app.include_router(projects_router)
 app.include_router(nodes_router)
 app.include_router(purchases_router)
 app.include_router(reminders_router)
+app.include_router(assets_router)
 
 
 @app.get("/api/health/liveness")
