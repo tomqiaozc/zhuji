@@ -7,6 +7,7 @@
 
 import { useState } from 'react'
 import { api, ApiError } from '@/lib/api'
+import { useApp } from '@/store/app'
 import { useAuth, type AuthUser } from '@/store/auth'
 import { clearLocalCache, hydrateEverything } from '@/lib/repository'
 
@@ -24,6 +25,7 @@ type Mode = 'login' | 'register'
 
 export function AuthPage({ onAuthed }: Props) {
   const setSession = useAuth((s) => s.setSession)
+  const resetApp = useApp((s) => s.reset)
   const [mode, setMode] = useState<Mode>('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -53,9 +55,11 @@ export function AuthPage({ onAuthed }: Props) {
         username: username.trim(),
         password,
       })
-      // Clear any leftover cache from a previous session before fetching the
-      // new user's data — never let one account see another's projects.
+      // Clear any leftover cache + UI state from a previous session
+      // before fetching the new user's data — never let one account see
+      // another's projects or land on its persisted currentProjectId.
       await clearLocalCache()
+      resetApp()
       setSession(res.access_token, res.user)
       try {
         await hydrateEverything()

@@ -123,6 +123,15 @@ export async function hydrateEverything(): Promise<void> {
   for (const p of projects) {
     await hydrateProject(p.id)
   }
+  // Defensive: if the persisted UI store still points at a project that
+  // doesn't belong to this account (e.g. a previous logout missed the
+  // reset), repair the state now so the UI doesn't get stuck on a
+  // permanent "loading…" screen waiting for an inaccessible row.
+  const { useApp } = await import('@/store/app')
+  const cur = useApp.getState().currentProjectId
+  if (cur && !projects.some((p) => p.id === cur)) {
+    useApp.getState().setProject(projects[0]?.id ?? null)
+  }
 }
 
 // ─── Projects ────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useApp } from '@/store/app'
 import { useAuth } from '@/store/auth'
 import { clearLocalCache } from '@/lib/repository'
 import type { Project } from '@/types'
@@ -25,9 +26,13 @@ export function Topbar({
   const [menu, setMenu] = useState(false)
   const user = useAuth((s) => s.user)
   const clearSession = useAuth((s) => s.clearSession)
+  const resetApp = useApp((s) => s.reset)
 
   async function handleLogout() {
     await clearLocalCache()
+    // Clear UI state BEFORE the auth token — otherwise the persisted
+    // currentProjectId leaks into the next account's first render.
+    resetApp()
     clearSession()
   }
   return (

@@ -15,6 +15,7 @@ interface Props {
 
 export function Settings({ project, onNewProject }: Props) {
   const setProject = useApp((s) => s.setProject)
+  const resetApp = useApp((s) => s.reset)
   const user = useAuth((s) => s.user)
   const clearSession = useAuth((s) => s.clearSession)
   const [name, setName] = useState(project.name)
@@ -83,6 +84,9 @@ export function Settings({ project, onNewProject }: Props) {
 
   async function handleLogout() {
     await clearLocalCache()
+    // Clear UI state too — currentProjectId persists in zhuji-app-state
+    // and would otherwise carry across to the next account's first boot.
+    resetApp()
     clearSession()
   }
 

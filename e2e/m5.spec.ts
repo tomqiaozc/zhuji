@@ -101,3 +101,44 @@ test('wrong password is rejected', async ({ page }) => {
   await page.getByTestId('auth-submit').click()
   await expect(page.getByTestId('auth-error')).toBeVisible()
 })
+
+/**
+ * Regression guard for CR2: when user A logs out and user B logs in on
+ * the same browser, B must NOT inherit A's persisted currentProjectId.
+ *
+ * Before the fix, useApp's `currentProjectId` survived in localStorage
+ * across the logout, so B's first render would call
+ *   useLiveQuery(() => db.projects.where('id').equals(<A's id>))
+ * which never resolves a row for B → the UI stays on "loading…".
+ *
+ * The expected behavior: B lands on EmptyHero (no projects yet).
+ */
+test('CR2: cross-account switch does not leak A’s currentProjectId to B', async ({ page }) => {
+  const alice = uniqueUsername('alice')
+  const bob = uniqueUsername('bob')
+
+  // A registers, loads demo, lands on Dashboard.
+  await registerNewUser(page, alice)
+  await page.getByTestId('empty-hero-demo').click()
+  await expect(page.getByText('示范家 · 89㎡', { exact: false }).first()).toBeVisible({
+    timeout: 20_000,
+  })
+
+  // A logs out.
+  await page.getByTestId('topbar-logout').click()
+  await expect(page.getByTestId('auth-submit')).toBeVisible({ timeout: 10_000 })
+
+  // B registers immediately on the same browser. Without the fix, the
+  // persisted currentProjectId (= A's project) would pin B's main view
+  // to a non-existent row and the EmptyHero would never appear.
+  await page.getByRole('button', { name: '去注册' }).click()
+  await page.getByTestId('auth-username').fill(bob)
+  await page.getByTestId('auth-password').fill('secret-test-1234')
+  await page.getByTestId('auth-submit').click()
+
+  // B is a brand-new account, so they should see EmptyHero — not a
+  // permanent loading spinner pointing at A's project.
+  await expect(page.getByTestId('empty-hero')).toBeVisible({ timeout: 15_000 })
+  // And the Topbar reflects B, not A.
+  await expect(page.getByTestId('topbar-user')).toContainText(bob)
+})

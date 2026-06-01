@@ -2,17 +2,21 @@ import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { AuthPage } from './views/AuthPage'
+import { useApp } from './store/app'
 import { useAuth } from './store/auth'
 import { configureApi } from './lib/api'
 import { clearLocalCache, hydrateEverything } from './lib/repository'
 import './styles.css'
 
 // Wire API client to auth store. Token is read on every request; a 401
-// from the backend clears the session and bounces us back to AuthPage.
+// from the backend clears the session AND the UI store (so next user's
+// boot doesn't reuse the previous user's currentProjectId) and bounces
+// us back to AuthPage.
 configureApi({
   getToken: () => useAuth.getState().token,
   onUnauthorized: () => {
     void clearLocalCache()
+    useApp.getState().reset()
     useAuth.getState().clearSession()
   },
 })

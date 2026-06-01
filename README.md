@@ -38,9 +38,15 @@ pip install -e ".[dev]"
 pytest -v
 
 # 前端 e2e（需要后端在跑）
-JWT_SECRET=test-only-32-chars-or-more-aaaaaaaa \
-  DATABASE_URL="sqlite+aiosqlite:///./e2e.db" \
-  python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 &
+#
+# 重要：从干净 SQLite 启动时，必须先跑 alembic upgrade head 建表。
+# docker compose 走 entrypoint.sh 时是自动跑的，但直接 uvicorn 不是。
+cd backend && source .venv/bin/activate
+export JWT_SECRET=test-only-32-chars-or-more-aaaaaaaa
+export DATABASE_URL="sqlite+aiosqlite:///./e2e.db"
+rm -f e2e.db                       # 起干净库
+alembic upgrade head               # ← 必须，否则 /api/auth/register 会 500
+python -m uvicorn src.main:app --host 127.0.0.1 --port 8000 &
 cd .. && VITE_API_PROXY_TARGET=http://127.0.0.1:8000 npx playwright test
 ```
 
