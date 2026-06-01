@@ -50,6 +50,17 @@ class TokenResponse(BaseModel):
     user: "UserOut"
 
 
+class AssetViewerTokenResponse(BaseModel):
+    """Short-TTL token scoped to ``GET /api/assets/:id/content``.
+
+    Embedded in image URLs so ``<img src>`` works without leaking the
+    main API JWT into browser history, server logs, or Referer headers.
+    """
+
+    token: str
+    expires_in: int
+
+
 class UserOut(_ORM):
     id: UUID
     username: str

@@ -39,15 +39,79 @@ export function configureApi(opts: {
 
 /**
  * Build an absolute URL for an endpoint that can't carry an
- * Authorization header — e.g. ``<img src>``. Appends the current JWT
- * as ``?token=...``. Returns an empty string if the user isn't logged
- * in, which is a defensive guard for callers that forget to check.
+ * Authorization header — e.g. ``<img src>``. Appends the cached
+ * short-TTL asset-viewer token as ``?token=...``.
+ *
+ * Returns an empty string if no viewer token has been minted yet —
+ * callers should ``await ensureAssetViewerToken()`` first (the asset
+ * gallery does this before rendering). The main API JWT is NEVER
+ * embedded here: it must not appear in URLs (browser history, server
+ * logs, Referer).
  */
 export function authedUrl(path: string): string {
-  const token = getToken()
+  const token = currentAssetViewerToken()
   if (!token) return ''
   const sep = path.includes('?') ? '&' : '?'
   return `${BASE}${path}${sep}token=${encodeURIComponent(token)}`
+}
+
+interface AssetViewerCache {
+  token: string
+  /** ms-since-epoch; we refresh ~60s before this. */
+  expiresAt: number
+}
+
+let assetViewerCache: AssetViewerCache | null = null
+let assetViewerInflight: Promise<string> | null = null
+
+// Refresh a minute before the server-side TTL so an image that loads
+// right at the edge still gets a fresh token instead of a 401.
+const VIEWER_REFRESH_MARGIN_MS = 60_000
+
+function currentAssetViewerToken(): string | null {
+  if (!assetViewerCache) return null
+  if (Date.now() + VIEWER_REFRESH_MARGIN_MS >= assetViewerCache.expiresAt) return null
+  return assetViewerCache.token
+}
+
+interface AssetViewerTokenResponse {
+  token: string
+  expires_in: number
+}
+
+/**
+ * Make sure an unexpired asset-viewer token is cached, minting one if
+ * needed. Safe to call concurrently — concurrent requests share a
+ * single mint round-trip. Returns the cached token.
+ *
+ * Requires the user to be logged in (main JWT in the auth store).
+ */
+export async function ensureAssetViewerToken(): Promise<string> {
+  const fresh = currentAssetViewerToken()
+  if (fresh) return fresh
+  if (assetViewerInflight) return assetViewerInflight
+  assetViewerInflight = (async () => {
+    const out = await request<AssetViewerTokenResponse>(
+      'POST',
+      '/api/auth/asset-viewer-token',
+    )
+    assetViewerCache = {
+      token: out.token,
+      expiresAt: Date.now() + out.expires_in * 1000,
+    }
+    return out.token
+  })()
+  try {
+    return await assetViewerInflight
+  } finally {
+    assetViewerInflight = null
+  }
+}
+
+/** Clear the cached viewer token (e.g. on logout). */
+export function clearAssetViewerToken(): void {
+  assetViewerCache = null
+  assetViewerInflight = null
 }
 
 async function request<T>(

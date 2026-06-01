@@ -12,20 +12,55 @@ function exec(cmd: string, arg?: string) {
   document.execCommand(cmd, false, arg)
 }
 
+const DEBOUNCE_MS = 300
+
 export function RichTextEditor({ value, onChange, placeholder }: Props) {
   const ref = useRef<HTMLDivElement>(null)
+  // Last value we either pushed up via onChange or accepted from props. We
+  // compare against this to skip no-op writes (every keystroke would
+  // otherwise fire onChange) AND to detect when an incoming `value` prop
+  // is just the echo of what we just sent — that lets us avoid clobbering
+  // the caret while the user is mid-edit.
+  const lastCommittedRef = useRef<string>(sanitizeHtml(value))
+  const timerRef = useRef<number | null>(null)
 
+  // Sync external value changes into the DOM, but not when the change is
+  // just our own debounced commit coming back through the parent's state.
   useEffect(() => {
     const el = ref.current
     if (!el) return
     const safe = sanitizeHtml(value)
+    if (safe === lastCommittedRef.current) return
     if (el.innerHTML !== safe) el.innerHTML = safe
+    lastCommittedRef.current = safe
   }, [value])
 
-  function handleInput() {
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    },
+    [],
+  )
+
+  function commitNow() {
     const el = ref.current
     if (!el) return
-    onChange(sanitizeHtml(el.innerHTML))
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    const next = sanitizeHtml(el.innerHTML)
+    if (next === lastCommittedRef.current) return
+    lastCommittedRef.current = next
+    onChange(next)
+  }
+
+  function scheduleCommit() {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null
+      commitNow()
+    }, DEBOUNCE_MS)
   }
 
   function btn(label: string, cmd: string, arg?: string, title?: string) {
@@ -36,7 +71,9 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
         onMouseDown={(e) => {
           e.preventDefault()
           exec(cmd, arg)
-          handleInput()
+          // Toolbar-driven edits are discrete actions; commit immediately
+          // so toolbar feedback (e.g. tab away, save) sees the new state.
+          commitNow()
         }}
       >
         {label}
@@ -61,7 +98,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
             const url = prompt('链接 URL')
             if (url) {
               exec('createLink', url)
-              handleInput()
+              commitNow()
             }
           }}
         >
@@ -74,8 +111,8 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
         className="rt-editor"
         contentEditable
         suppressContentEditableWarning
-        onInput={handleInput}
-        onBlur={handleInput}
+        onInput={scheduleCommit}
+        onBlur={commitNow}
         data-placeholder={placeholder}
       />
     </div>

@@ -57,12 +57,12 @@ async def test_assets_isolated_across_users(client: AsyncClient) -> None:
     assert r.status_code == 404
 
 
-async def test_content_endpoint_accepts_query_token(client: AsyncClient) -> None:
-    """`<img src>` can't carry an Authorization header — the proxy must
-    accept the JWT via ``?token=...`` as well. Use a non-existent asset
-    id so the test stays storage-free: the auth check runs FIRST, and
-    a valid token + bogus id returns 404 (resource-not-found), while
-    no token at all returns 401."""
+async def test_content_endpoint_accepts_viewer_token_in_query(client: AsyncClient) -> None:
+    """`<img src>` can't carry an Authorization header, so the proxy
+    accepts a short-TTL asset-viewer token via ``?token=...``. The main
+    API JWT is NOT accepted in URLs — that would leak it into browser
+    history / server logs / Referer. Bogus asset id keeps the test
+    storage-free: auth check runs first, then the row lookup 404s."""
     info = await register_user(client)
 
     bogus_asset = "00000000-0000-0000-0000-000000000000"
@@ -71,21 +71,45 @@ async def test_content_endpoint_accepts_query_token(client: AsyncClient) -> None
     r = await client.get(f"/api/assets/{bogus_asset}/content")
     assert r.status_code == 401
 
-    # Token via query string → auth passes, then 404 because the asset
-    # doesn't exist for this user.
+    # Main API JWT in the query string is rejected — must be in the
+    # Authorization header instead.
     r = await client.get(f"/api/assets/{bogus_asset}/content?token={info['token']}")
+    assert r.status_code == 401, r.text
+
+    # Mint a viewer token via the dedicated endpoint and use that in the URL.
+    r = await client.post("/api/auth/asset-viewer-token", headers=auth_headers(info["token"]))
+    assert r.status_code == 200, r.text
+    viewer = r.json()
+    assert viewer["expires_in"] <= 15 * 60
+    viewer_token = viewer["token"]
+
+    # Viewer token via query string → auth passes, then 404 because the
+    # asset doesn't exist for this user.
+    r = await client.get(f"/api/assets/{bogus_asset}/content?token={viewer_token}")
+    assert r.status_code == 404, r.text
+
+    # Main JWT still works via the Authorization header.
+    r = await client.get(
+        f"/api/assets/{bogus_asset}/content",
+        headers=auth_headers(info["token"]),
+    )
     assert r.status_code == 404, r.text
 
 
-async def test_content_endpoint_404_for_other_user(client: AsyncClient) -> None:
-    """A valid token belonging to user B must NOT grant access to user
-    A's asset id (even though we have no real asset row to test against,
-    the ownership join is what we're checking — a non-existent id
-    returns 404 the same way a stolen-id-belonging-to-someone-else
-    would). Documents the contract."""
-    info = await register_user(client, username="ct-user")
-    r = await client.get(f"/api/assets/00000000-0000-0000-0000-000000000000/content?token={info['token']}")
-    assert r.status_code == 404
+async def test_viewer_token_cannot_unlock_other_endpoints(client: AsyncClient) -> None:
+    """A leaked asset-viewer URL must NOT also unlock the rest of the API.
+
+    Scope is enforced by the JWT ``typ`` claim — the viewer token only
+    passes the asset-content dependency."""
+    info = await register_user(client, username="viewer-scope")
+    r = await client.post("/api/auth/asset-viewer-token", headers=auth_headers(info["token"]))
+    assert r.status_code == 200
+    viewer_token = r.json()["token"]
+
+    # Trying to use the viewer token as a Bearer for a regular endpoint
+    # must be rejected.
+    r = await client.get("/api/projects", headers=auth_headers(viewer_token))
+    assert r.status_code == 401
 
 
 async def test_asset_responses_never_leak_blob_url(
