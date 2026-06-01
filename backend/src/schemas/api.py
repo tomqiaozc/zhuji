@@ -254,11 +254,17 @@ class LoadDemoResponse(BaseModel):
 
 
 class AssetOut(_ORM):
+    """Asset summary returned to the client.
+
+    `blob_url` is deliberately omitted — the container is private and the
+    raw Azure URL must never leave the backend. Clients fetch bytes via
+    `/api/assets/{id}/content` instead.
+    """
+
     id: UUID
     project_id: UUID
     ref_type: str
     ref_id: UUID
-    blob_url: str
     file_name: str
     mime_type: str
     size: int

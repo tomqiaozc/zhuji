@@ -403,7 +403,8 @@ interface AssetOut {
   project_id: string
   ref_type: string
   ref_id: string
-  blob_url: string
+  // NB: no `blob_url` — the raw Azure URL is private and never leaves
+  // the backend. We build the auth-protected proxy URL from `id`.
   file_name: string
   mime_type: string
   size: number

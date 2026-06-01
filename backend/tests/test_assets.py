@@ -86,3 +86,51 @@ async def test_content_endpoint_404_for_other_user(client: AsyncClient) -> None:
     info = await register_user(client, username="ct-user")
     r = await client.get(f"/api/assets/00000000-0000-0000-0000-000000000000/content?token={info['token']}")
     assert r.status_code == 404
+
+
+async def test_asset_responses_never_leak_blob_url(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression for CR1+: the API surface must NOT expose the raw Azure
+    blob URL — the container is private and the URL is bearer-token-free.
+    Both list and upload responses are scrubbed of blob_url + the blob
+    storage host."""
+    info = await register_user(client, username="leak-check")
+    pid, nid = await _make_project_with_node(client, info["token"])
+
+    # Stub out the blob layer so the upload actually persists a row
+    # without needing a real storage account.
+    from src.services import storage as blob_storage
+
+    fake_url = "https://stqefxzrxiqz4kw.blob.core.windows.net/zhuji-assets/secret/file.png"
+    monkeypatch.setattr(blob_storage, "is_configured", lambda: True)
+    monkeypatch.setattr(blob_storage, "upload_blob", lambda *_a, **_k: fake_url)
+    # Predictable blob name so the fake URL above stays deterministic.
+    monkeypatch.setattr(blob_storage, "make_blob_name", lambda _pid, _name: "secret/file.png")
+
+    files = {"file": ("a.png", b"\x89PNG\r\n\x1a\nfake", "image/png")}
+    data = {"ref_type": "node", "ref_id": nid}
+    r = await client.post(
+        f"/api/projects/{pid}/assets",
+        headers=auth_headers(info["token"]),
+        files=files,
+        data=data,
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert "blob_url" not in body, body
+    assert "blob.core.windows.net" not in r.text, r.text
+    # Sanity: the response still has everything the client needs.
+    asset_id = body["id"]
+    for required in ("id", "project_id", "ref_type", "ref_id", "file_name", "mime_type", "size"):
+        assert required in body, body
+
+    # List response must be just as clean.
+    r = await client.get(f"/api/projects/{pid}/assets", headers=auth_headers(info["token"]))
+    assert r.status_code == 200
+    items = r.json()
+    assert any(a["id"] == asset_id for a in items)
+    for a in items:
+        assert "blob_url" not in a, a
+    assert "blob.core.windows.net" not in r.text, r.text
