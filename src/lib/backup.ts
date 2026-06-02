@@ -10,6 +10,7 @@
 
 import dayjs from 'dayjs'
 import { db } from '@/db'
+import { alertDialog } from '@/lib/dialog'
 
 function fmtMoneyForPdf(n: number): string {
   return '¥ ' + n.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
@@ -156,11 +157,11 @@ export async function exportProjectPdf(projectId: string): Promise<void> {
     <tbody>
       ${purchases
         .slice()
-        .sort((a, b) => (a.purchaseDate < b.purchaseDate ? 1 : -1))
+        .sort((a, b) => ((a.purchaseDate ?? '') < (b.purchaseDate ?? '') ? 1 : -1))
         .map((p) => {
           const n = byNode.get(p.nodeId)
           return `<tr>
-            <td>${escapeHtml(p.purchaseDate)}</td>
+            <td>${escapeHtml(p.purchaseDate ?? '')}</td>
             <td>${escapeHtml(p.name)}</td>
             <td>${escapeHtml(p.brand ?? '—')}</td>
             <td><span class="tag">${escapeHtml(p.category)}</span></td>
@@ -184,7 +185,10 @@ export async function exportProjectPdf(projectId: string): Promise<void> {
 
   const win = window.open('', '_blank')
   if (!win) {
-    alert('浏览器拦截了弹窗，请允许弹窗后重试')
+    await alertDialog({
+      title: '导出失败',
+      message: '浏览器拦截了弹窗，请允许弹窗后重试',
+    })
     return
   }
   win.document.open()

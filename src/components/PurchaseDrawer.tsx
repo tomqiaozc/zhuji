@@ -125,7 +125,20 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
 
   return (
     <div className="drawer-bg" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="drawer" role="dialog" aria-modal="true">
+      <div
+        className="drawer"
+        role="dialog"
+        aria-modal="true"
+        onKeyDown={(e) => {
+          // Enter on a text field would normally submit a <form>; the drawer
+          // doesn't use one, but we still want a friendly keyboard shortcut.
+          // Skip while the IME is composing (selecting a CJK candidate).
+          if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+          const t = e.target as HTMLElement
+          if (t.tagName === 'TEXTAREA') return
+          if (!busy) void save()
+        }}
+      >
         <div className="drawer-header">
           <div className="drawer-title">{editing ? '编辑采购' : '记一笔采购'}</div>
           <button className="icon-btn" onClick={onClose} aria-label="关闭">

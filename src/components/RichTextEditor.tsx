@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { sanitizeHtml } from '@/lib/sanitize'
 
 interface Props {
@@ -25,6 +25,11 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
   // when that value happens to equal an empty editor's innerHTML.
   const lastCommittedRef = useRef<string | null>(null)
   const timerRef = useRef<number | null>(null)
+  // Disable the "clear formatting" button unless the user has a non-empty
+  // selection inside the editor; previously a stray click would wipe the
+  // entire document. Tracked via a selectionchange listener so the button
+  // updates as the caret moves.
+  const [hasSelection, setHasSelection] = useState(false)
 
   // Sync external value changes into the DOM, but not when the change is
   // just our own debounced commit coming back through the parent's state.
@@ -43,6 +48,26 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
     },
     [],
   )
+
+  useEffect(() => {
+    function recompute() {
+      const sel = window.getSelection()
+      const el = ref.current
+      if (!sel || !el || sel.isCollapsed || sel.rangeCount === 0) {
+        setHasSelection(false)
+        return
+      }
+      const range = sel.getRangeAt(0)
+      // Make sure the selection actually lives inside this editor.
+      if (!el.contains(range.commonAncestorContainer)) {
+        setHasSelection(false)
+        return
+      }
+      setHasSelection(range.toString().length > 0)
+    }
+    document.addEventListener('selectionchange', recompute)
+    return () => document.removeEventListener('selectionchange', recompute)
+  }, [])
 
   function commitNow() {
     const el = ref.current
@@ -106,7 +131,19 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
         >
           🔗
         </button>
-        {btn('清除', 'removeFormat', undefined, '清除格式')}
+        <button
+          type="button"
+          title={hasSelection ? '清除选中文本的格式' : '请先选中文字再清除格式'}
+          disabled={!hasSelection}
+          onMouseDown={(e) => {
+            e.preventDefault()
+            if (!hasSelection) return
+            exec('removeFormat')
+            commitNow()
+          }}
+        >
+          清除选中格式
+        </button>
       </div>
       <div
         ref={ref}

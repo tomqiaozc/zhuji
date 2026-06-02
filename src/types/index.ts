@@ -49,7 +49,7 @@ export interface Purchase {
   unitPrice: number
   quantity: number
   totalPrice: number
-  purchaseDate: string
+  purchaseDate?: string
   purchaseUrl?: string
   imageIds: string[]
   remark?: string

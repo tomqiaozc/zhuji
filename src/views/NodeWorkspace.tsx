@@ -15,6 +15,7 @@ import type { DecorNode, NodeStatus, Project } from '@/types'
 import { RichTextEditor } from '@/components/RichTextEditor'
 import { NodeImagesPanel } from '@/components/NodeImagesPanel'
 import { NodeWorkspaceOnboarding } from '@/components/NodeWorkspaceOnboarding'
+import { confirmDialog } from '@/lib/dialog'
 
 interface Props {
   project: Project
@@ -262,7 +263,7 @@ function NodePanel({
                         <span className="tag">{p.category}</span>
                       </td>
                       <td>{p.channel ?? '—'}</td>
-                      <td>{dayjs(p.purchaseDate).format('M/D')}</td>
+                      <td>{p.purchaseDate ? dayjs(p.purchaseDate).format('M/D') : '—'}</td>
                       <td className="price-cell">{fmtMoney(p.totalPrice)}</td>
                       <td>
                         <button
@@ -338,6 +339,21 @@ function TipsPanel({ node }: { node: DecorNode }) {
     .map((l) => l.replace(/^\s*[-*]\s*/, '').trim())
     .filter(Boolean)
 
+  async function cancelEdit() {
+    if (draft !== node.tips) {
+      const ok = await confirmDialog({
+        title: '放弃未保存的修改？',
+        message: '取消后未保存的内容会丢失。',
+        confirmLabel: '放弃',
+        cancelLabel: '继续编辑',
+        danger: true,
+      })
+      if (!ok) return
+      setDraft(node.tips)
+    }
+    setEditing(false)
+  }
+
   return (
     <div className="tab-panel">
       {editing ? (
@@ -358,9 +374,14 @@ function TipsPanel({ node }: { node: DecorNode }) {
             >
               保存
             </button>
-            <button className="btn btn-sm" onClick={() => setEditing(false)}>
+            <button className="btn btn-sm" onClick={cancelEdit}>
               取消
             </button>
+            {draft !== node.tips && (
+              <span style={{ fontSize: 12, color: 'var(--text-mute)', alignSelf: 'center' }}>
+                有未保存修改
+              </span>
+            )}
           </div>
         </>
       ) : (
@@ -460,7 +481,9 @@ function ChecklistPanel({ node }: { node: DecorNode }) {
               value={newText}
               autoFocus
               onChange={(e) => setNewText(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && add()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) add()
+              }}
               placeholder="新增一项"
               style={{
                 flex: 1,

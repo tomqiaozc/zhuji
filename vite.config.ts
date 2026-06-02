@@ -47,7 +47,10 @@ export default defineConfig({
       output: {
         manualChunks: {
           recharts: ['recharts'],
-          xlsx: ['xlsx'],
+          // `xlsx` is intentionally NOT listed here. Purchases.tsx
+          // dynamic-imports it on first "导出 Excel" click; letting
+          // rollup auto-emit it as its own async chunk keeps the
+          // initial bundle small (xlsx is ~6 MB of source).
           dexie: ['dexie', 'dexie-react-hooks'],
         },
       },

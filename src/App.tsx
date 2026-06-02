@@ -22,6 +22,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { EmptyHero } from '@/components/EmptyHero'
 import { ToastHost } from '@/components/ToastHost'
 import { KeyboardHelp } from '@/components/KeyboardHelp'
+import { ConfirmDialogHost } from '@/components/ConfirmDialog'
 
 export default function App() {
   const { currentProjectId, setProject, view, setActiveNode, setView } = useApp()
@@ -204,6 +205,7 @@ export default function App() {
 
       <ReminderToastHost />
       <ToastHost />
+      <ConfirmDialogHost />
     </div>
   )
 }

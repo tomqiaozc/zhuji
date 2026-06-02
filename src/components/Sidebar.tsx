@@ -10,17 +10,20 @@ interface Props {
 export function Sidebar({ mobileOpen, onNav }: Props) {
   const { view, setView, currentProjectId } = useApp()
 
-  const nodeCount = useLiveQuery(
-    async () =>
-      currentProjectId ? await db.nodes.where('projectId').equals(currentProjectId).count() : 0,
+  // One combined live query instead of two separate ones. Dexie still
+  // re-runs when either table changes, but we register a single listener
+  // and a single transaction round-trip per change.
+  const counts = useLiveQuery(
+    async () => {
+      if (!currentProjectId) return { nodes: 0, purchases: 0 }
+      const [nodes, purchases] = await Promise.all([
+        db.nodes.where('projectId').equals(currentProjectId).count(),
+        db.purchases.where('projectId').equals(currentProjectId).count(),
+      ])
+      return { nodes, purchases }
+    },
     [currentProjectId],
-  )
-  const purchaseCount = useLiveQuery(
-    async () =>
-      currentProjectId
-        ? await db.purchases.where('projectId').equals(currentProjectId).count()
-        : 0,
-    [currentProjectId],
+    { nodes: 0, purchases: 0 },
   )
 
   const items: {
@@ -30,9 +33,9 @@ export function Sidebar({ mobileOpen, onNav }: Props) {
     badge?: number
   }[] = [
     { key: 'dashboard', icon: '📊', label: '总览' },
-    { key: 'node', icon: '📋', label: '节点工作台', badge: nodeCount },
+    { key: 'node', icon: '📋', label: '节点工作台', badge: counts.nodes },
     { key: 'timeline', icon: '📅', label: '时间轴' },
-    { key: 'purchase', icon: '🧾', label: '采购流水', badge: purchaseCount },
+    { key: 'purchase', icon: '🧾', label: '采购流水', badge: counts.purchases },
   ]
 
   return (

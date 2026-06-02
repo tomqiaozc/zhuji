@@ -42,6 +42,10 @@ export function AuthPage({ onAuthed }: Props) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    // Guard against IME-composition Enter accidentally firing the submit
+    // (mainly relevant if the user pastes/types CJK into username).
+    const ne = e.nativeEvent as InputEvent
+    if ('isComposing' in ne && (ne as { isComposing?: boolean }).isComposing) return
     const localErr = clientValidate()
     if (localErr) {
       setError(localErr)

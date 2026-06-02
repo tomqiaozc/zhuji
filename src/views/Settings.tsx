@@ -8,6 +8,7 @@ import { exportProjectPdf } from '@/lib/backup'
 import { TemplateEditor } from '@/components/TemplateEditor'
 import { clearLocalCache, hydrateEverything } from '@/lib/repository'
 import { clearAssetViewerToken } from '@/lib/api'
+import { alertDialog, confirmDialog } from '@/lib/dialog'
 
 interface Props {
   project: Project
@@ -46,7 +47,13 @@ export function Settings({ project, onNewProject }: Props) {
   }
 
   async function handleDelete() {
-    if (!confirm(`删除项目「${project.name}」？所有节点和采购都会一起删除（云端数据也会删除，无法撤销）。`)) return
+    const ok = await confirmDialog({
+      title: '删除项目',
+      message: `删除项目「${project.name}」？\n所有节点和采购都会一起删除（云端数据也会删除，无法撤销）。`,
+      confirmLabel: '删除',
+      danger: true,
+    })
+    if (!ok) return
     await deleteProject(project.id)
     setProject(null)
   }
@@ -96,7 +103,10 @@ export function Settings({ project, onNewProject }: Props) {
     try {
       await exportProjectPdf(project.id)
     } catch (e) {
-      alert('导出 PDF 失败：' + ((e as Error)?.message ?? ''))
+      await alertDialog({
+        title: '导出 PDF 失败',
+        message: (e as Error)?.message ?? '未知错误',
+      })
     }
   }
 

@@ -136,6 +136,9 @@ export function SearchPalette({ projectId, onClose, onJumpNode }: Props) {
   }
 
   function handleKey(e: React.KeyboardEvent) {
+    // Ignore Enter while the IME is composing — otherwise selecting a
+    // pinyin/kana candidate triggers the jump.
+    if (e.nativeEvent.isComposing) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setActiveIdx((i) => Math.min(i + 1, results.length - 1))
