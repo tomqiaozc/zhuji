@@ -2,11 +2,13 @@
  * Repository — single source of truth for Project / Node / Checklist /
  * Purchase / Reminder mutations.
  *
- * Pattern: every write goes to the backend FIRST, then mirrors the
- * authoritative response into Dexie. UI code keeps reading from Dexie
- * via `useLiveQuery` and reacts immediately when the cache is patched.
- * On 401 the API client clears the auth store, which sends the user to
- * the login page; nothing in this module needs to know.
+ * Pattern: writes are **optimistic** — the local Dexie cache is patched
+ * first so the UI (via `useLiveQuery`) reacts instantly, the HTTP call
+ * runs in the background, and on failure the cache is rolled back to its
+ * pre-mutation state and a toast is shown. The backend is still the
+ * source of truth; its authoritative response overwrites the optimistic
+ * row on success. On 401 the API client clears the auth store, which
+ * sends the user to the login page; nothing in this module needs to know.
  *
  * `hydrateProjectList()` and `hydrateProject(projectId)` pull fresh
  * snapshots from the backend and replace the local cache for the
@@ -16,6 +18,8 @@
 
 import { db } from '@/db'
 import { api, authedUrl, ensureAssetViewerToken } from '@/lib/api'
+import { pushToast } from '@/lib/toast'
+import { uid } from '@/lib/uid'
 import {
   type ChecklistItemOut,
   type LoadDemoResponse,
@@ -44,19 +48,49 @@ async function cacheNode(node: DecorNode): Promise<void> {
   await db.nodes.put(node)
 }
 
+/**
+ * Run an optimistic write: patch the cache first so the UI flips
+ * instantly, then call the backend. If the backend rejects, roll the
+ * cache back to its prior state and surface a toast — the caller can
+ * still `try/catch` to do extra UI work, but the toast guarantees the
+ * user always sees that their change didn't stick.
+ *
+ *   apply():    mutate the local cache to its optimistic state
+ *   server():   make the authoritative HTTP call and return its result
+ *   rollback(): restore the cache to its pre-`apply()` state on failure
+ */
+async function withOptimistic<T>(
+  apply: () => Promise<void>,
+  server: () => Promise<T>,
+  rollback: () => Promise<void>,
+): Promise<T> {
+  await apply()
+  try {
+    return await server()
+  } catch (err) {
+    try {
+      await rollback()
+    } catch {
+      // best-effort: a failing rollback shouldn't mask the original error
+    }
+    const msg = (err as Error)?.message ?? '操作失败'
+    pushToast(`${msg}（已撤回本地更改）`, 'error', 5000)
+    throw err
+  }
+}
+
 // ─── Hydration ───────────────────────────────────────────────────
 
 /** Wipe the local cache. Use on logout to prevent cross-account leaks. */
 export async function clearLocalCache(): Promise<void> {
   await db.transaction(
     'rw',
-    [db.projects, db.nodes, db.purchases, db.assets, db.reminders],
+    [db.projects, db.nodes, db.purchases, db.reminders],
     async () => {
       await Promise.all([
         db.projects.clear(),
         db.nodes.clear(),
         db.purchases.clear(),
-        db.assets.clear(),
         db.reminders.clear(),
       ])
     },
@@ -118,9 +152,7 @@ export async function hydrateProject(projectId: string): Promise<void> {
 /** Pull the project list AND all per-project data. Used after login. */
 export async function hydrateEverything(): Promise<void> {
   const projects = await hydrateProjectList()
-  for (const p of projects) {
-    await hydrateProject(p.id)
-  }
+  await Promise.all(projects.map((p) => hydrateProject(p.id)))
   // Defensive: if the persisted UI store still points at a project that
   // doesn't belong to this account (e.g. a previous logout missed the
   // reset), repair the state now so the UI doesn't get stuck on a
@@ -137,16 +169,40 @@ export async function hydrateEverything(): Promise<void> {
 export async function createProject(
   input: Omit<Project, 'id' | 'createdAt'>,
 ): Promise<Project> {
-  const out = await api.post<ProjectOut>('/api/projects', projectToWire(input))
-  const project = projectFromWire(out)
-  await db.projects.put(project)
-  return project
+  // Optimistic insert with a temp id so the project list updates
+  // instantly. The temp row is swapped for the authoritative server row
+  // (which carries the real UUID + createdAt) once the POST returns.
+  const tempId = uid('tmp-proj')
+  const placeholder: Project = {
+    ...input,
+    id: tempId,
+    createdAt: new Date().toISOString(),
+  }
+  return withOptimistic(
+    async () => {
+      await db.projects.put(placeholder)
+    },
+    async () => {
+      const out = await api.post<ProjectOut>('/api/projects', projectToWire(input))
+      const project = projectFromWire(out)
+      await db.transaction('rw', db.projects, async () => {
+        await db.projects.delete(tempId)
+        await db.projects.put(project)
+      })
+      return project
+    },
+    async () => {
+      await db.projects.delete(tempId)
+    },
+  )
 }
 
 export async function updateProject(
   id: string,
   patch: Partial<Omit<Project, 'id' | 'createdAt'>>,
 ): Promise<Project> {
+  const prev = await db.projects.get(id)
+  const optimistic: Project | null = prev ? { ...prev, ...patch } : null
   const body: Record<string, unknown> = {}
   if (patch.name !== undefined) body.name = patch.name
   if (patch.address !== undefined) body.address = patch.address ?? null
@@ -154,23 +210,56 @@ export async function updateProject(
   if (patch.type !== undefined) body.type = patch.type ?? null
   if (patch.startDate !== undefined) body.start_date = patch.startDate ?? null
   if (patch.expectedEndDate !== undefined) body.expected_end_date = patch.expectedEndDate ?? null
-  const out = await api.patch<ProjectOut>(`/api/projects/${id}`, body)
-  const project = projectFromWire(out)
-  await db.projects.put(project)
-  return project
+  return withOptimistic(
+    async () => {
+      if (optimistic) await db.projects.put(optimistic)
+    },
+    async () => {
+      const out = await api.patch<ProjectOut>(`/api/projects/${id}`, body)
+      const project = projectFromWire(out)
+      await db.projects.put(project)
+      return project
+    },
+    async () => {
+      if (prev) await db.projects.put(prev)
+    },
+  )
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  await api.delete<void>(`/api/projects/${projectId}`)
-  await db.transaction(
-    'rw',
-    [db.projects, db.nodes, db.purchases, db.assets, db.reminders],
+  // Snapshot every row we're about to evict so the rollback can put
+  // them back if the backend rejects the delete.
+  const prevProject = await db.projects.get(projectId)
+  const prevNodes = await db.nodes.where('projectId').equals(projectId).toArray()
+  const prevPurchases = await db.purchases.where('projectId').equals(projectId).toArray()
+  const prevReminders = await db.reminders.where('projectId').equals(projectId).toArray()
+  await withOptimistic(
     async () => {
-      await db.projects.delete(projectId)
-      await db.nodes.where('projectId').equals(projectId).delete()
-      await db.purchases.where('projectId').equals(projectId).delete()
-      await db.assets.where('projectId').equals(projectId).delete()
-      await db.reminders.where('projectId').equals(projectId).delete()
+      await db.transaction(
+        'rw',
+        [db.projects, db.nodes, db.purchases, db.reminders],
+        async () => {
+          await db.projects.delete(projectId)
+          await db.nodes.where('projectId').equals(projectId).delete()
+          await db.purchases.where('projectId').equals(projectId).delete()
+          await db.reminders.where('projectId').equals(projectId).delete()
+        },
+      )
+    },
+    async () => {
+      await api.delete<void>(`/api/projects/${projectId}`)
+    },
+    async () => {
+      await db.transaction(
+        'rw',
+        [db.projects, db.nodes, db.purchases, db.reminders],
+        async () => {
+          if (prevProject) await db.projects.put(prevProject)
+          if (prevNodes.length) await db.nodes.bulkPut(prevNodes)
+          if (prevPurchases.length) await db.purchases.bulkPut(prevPurchases)
+          if (prevReminders.length) await db.reminders.bulkPut(prevReminders)
+        },
+      )
     },
   )
 }
@@ -182,26 +271,51 @@ export async function createNode(
   input: Omit<DecorNode, 'id' | 'projectId' | 'checklist'>,
   checklist: Array<{ text: string; done?: boolean; note?: string }> = [],
 ): Promise<DecorNode> {
-  const out = await api.post<NodeOut>(
-    `/api/projects/${projectId}/nodes`,
-    nodeToWire({ ...input, stage: input.stage, name: input.name }),
-  )
-  const created: DecorNode = nodeFromWire(out, [])
-  // Create checklist items in order, sequentially to keep `order` correct.
-  const items: ChecklistItem[] = []
-  for (let i = 0; i < checklist.length; i++) {
-    const c = checklist[i]
-    const co = await api.post<ChecklistItemOut>(`/api/nodes/${out.id}/checklist`, {
+  const tempId = uid('tmp-node')
+  const placeholder: DecorNode = {
+    ...input,
+    id: tempId,
+    projectId,
+    checklist: checklist.map((c, i) => ({
+      id: `${tempId}-c${i}`,
       text: c.text,
       done: !!c.done,
-      note: c.note ?? null,
-      order: i,
-    })
-    items.push(checklistFromWire(co))
+      note: c.note ?? undefined,
+    })),
   }
-  created.checklist = items
-  await cacheNode(created)
-  return created
+  return withOptimistic(
+    async () => {
+      await cacheNode(placeholder)
+    },
+    async () => {
+      const out = await api.post<NodeOut>(
+        `/api/projects/${projectId}/nodes`,
+        nodeToWire({ ...input, stage: input.stage, name: input.name }),
+      )
+      const created: DecorNode = nodeFromWire(out, [])
+      // Create checklist items in order, sequentially to keep `order` correct.
+      const items: ChecklistItem[] = []
+      for (let i = 0; i < checklist.length; i++) {
+        const c = checklist[i]
+        const co = await api.post<ChecklistItemOut>(`/api/nodes/${out.id}/checklist`, {
+          text: c.text,
+          done: !!c.done,
+          note: c.note ?? null,
+          order: i,
+        })
+        items.push(checklistFromWire(co))
+      }
+      created.checklist = items
+      await db.transaction('rw', db.nodes, async () => {
+        await db.nodes.delete(tempId)
+        await db.nodes.put(created)
+      })
+      return created
+    },
+    async () => {
+      await db.nodes.delete(tempId)
+    },
+  )
 }
 
 export async function updateNode(
@@ -211,35 +325,72 @@ export async function updateNode(
   // Checklist is updated via dedicated helpers below.
   const fieldPatch = nodePatchToWire(patch)
   const existing = await db.nodes.get(nodeId)
-  let updated: DecorNode
-  if (Object.keys(fieldPatch).length > 0) {
-    const out = await api.patch<NodeOut>(`/api/nodes/${nodeId}`, fieldPatch)
-    updated = nodeFromWire(out, existing?.checklist ?? [])
-  } else if (existing) {
-    updated = existing
-  } else {
-    // Cold start with no field patch — pull the node + its checklist.
-    // Only hit in the corner case where another tab evicted the cache
-    // mid-mutation; ordinary use never reaches here.
-    const nodeOut = await api.get<NodeOut>(`/api/nodes/${nodeId}`)
-    const items = await api.get<ChecklistItemOut[]>(`/api/nodes/${nodeId}/checklist`)
-    updated = nodeFromWire(nodeOut, items.map(checklistFromWire))
-  }
-  if (patch.checklist !== undefined) {
-    updated.checklist = await replaceChecklist(nodeId, patch.checklist)
-  }
-  await cacheNode(updated)
-  return updated
+  const hasFieldPatch = Object.keys(fieldPatch).length > 0
+
+  return withOptimistic(
+    async () => {
+      // Optimistic patch: merge fields and/or checklist into the cached
+      // row immediately so toggles, status changes, and checklist edits
+      // all render without waiting for HTTP.
+      if (existing && (hasFieldPatch || patch.checklist !== undefined)) {
+        const optimistic: DecorNode = {
+          ...existing,
+          ...patch,
+          checklist: patch.checklist ?? existing.checklist,
+        }
+        await cacheNode(optimistic)
+      }
+    },
+    async () => {
+      let updated: DecorNode
+      if (hasFieldPatch) {
+        const out = await api.patch<NodeOut>(`/api/nodes/${nodeId}`, fieldPatch)
+        updated = nodeFromWire(out, existing?.checklist ?? [])
+      } else if (existing) {
+        updated = existing
+      } else {
+        // Cold start with no field patch — pull the node + its checklist.
+        // Only hit in the corner case where another tab evicted the cache
+        // mid-mutation; ordinary use never reaches here.
+        const nodeOut = await api.get<NodeOut>(`/api/nodes/${nodeId}`)
+        const items = await api.get<ChecklistItemOut[]>(`/api/nodes/${nodeId}/checklist`)
+        updated = nodeFromWire(nodeOut, items.map(checklistFromWire))
+      }
+      if (patch.checklist !== undefined) {
+        updated.checklist = await replaceChecklist(nodeId, patch.checklist)
+      }
+      await cacheNode(updated)
+      return updated
+    },
+    async () => {
+      if (existing) await cacheNode(existing)
+    },
+  )
 }
 
 export async function deleteNode(nodeId: string): Promise<void> {
-  await api.delete<void>(`/api/nodes/${nodeId}`)
-  await db.transaction('rw', [db.nodes, db.purchases, db.assets, db.reminders], async () => {
-    await db.nodes.delete(nodeId)
-    await db.purchases.where('nodeId').equals(nodeId).delete()
-    await db.reminders.where('nodeId').equals(nodeId).delete()
-    await db.assets.where('[refType+refId]').equals(['node', nodeId]).delete()
-  })
+  const prevNode = await db.nodes.get(nodeId)
+  const prevPurchases = await db.purchases.where('nodeId').equals(nodeId).toArray()
+  const prevReminders = await db.reminders.where('nodeId').equals(nodeId).toArray()
+  await withOptimistic(
+    async () => {
+      await db.transaction('rw', [db.nodes, db.purchases, db.reminders], async () => {
+        await db.nodes.delete(nodeId)
+        await db.purchases.where('nodeId').equals(nodeId).delete()
+        await db.reminders.where('nodeId').equals(nodeId).delete()
+      })
+    },
+    async () => {
+      await api.delete<void>(`/api/nodes/${nodeId}`)
+    },
+    async () => {
+      await db.transaction('rw', [db.nodes, db.purchases, db.reminders], async () => {
+        if (prevNode) await db.nodes.put(prevNode)
+        if (prevPurchases.length) await db.purchases.bulkPut(prevPurchases)
+        if (prevReminders.length) await db.reminders.bulkPut(prevReminders)
+      })
+    },
+  )
 }
 
 // ─── Checklist ───────────────────────────────────────────────────
@@ -313,6 +464,12 @@ export async function removeChecklistItem(nodeId: string, itemId: string): Promi
  *
  * Kept for bulk paths (template seeding, backup restore) — the UI's
  * toggle/add/remove use the single-item helpers above instead.
+ *
+ * Intentionally NOT wrapped in `withOptimistic`: the optimistic story
+ * for checklists is handled one level up — `updateNode` patches the
+ * cached node's `checklist` array eagerly for the common case (toggle
+ * done, edit text). This helper only runs after the user commits the
+ * full list and the call already follows the cached state.
  */
 export async function replaceChecklist(
   nodeId: string,
@@ -366,32 +523,73 @@ export async function createPurchase(
   projectId: string,
   input: Omit<Purchase, 'id' | 'createdAt' | 'projectId'>,
 ): Promise<Purchase> {
-  const out = await api.post<PurchaseOut>(
-    `/api/projects/${projectId}/purchases`,
-    purchaseToWire(input),
+  const tempId = uid('tmp-purchase')
+  const placeholder: Purchase = {
+    ...input,
+    id: tempId,
+    projectId,
+    createdAt: new Date().toISOString(),
+  }
+  return withOptimistic(
+    async () => {
+      await db.purchases.put(placeholder)
+    },
+    async () => {
+      const out = await api.post<PurchaseOut>(
+        `/api/projects/${projectId}/purchases`,
+        purchaseToWire(input),
+      )
+      const p = purchaseFromWire(out)
+      await db.transaction('rw', db.purchases, async () => {
+        await db.purchases.delete(tempId)
+        await db.purchases.put(p)
+      })
+      return p
+    },
+    async () => {
+      await db.purchases.delete(tempId)
+    },
   )
-  const p = purchaseFromWire(out)
-  await db.purchases.put(p)
-  return p
 }
 
 export async function updatePurchase(
   purchaseId: string,
   patch: Partial<Purchase>,
 ): Promise<Purchase> {
-  const out = await api.patch<PurchaseOut>(
-    `/api/purchases/${purchaseId}`,
-    purchasePatchToWire(patch),
+  const prev = await db.purchases.get(purchaseId)
+  const optimistic: Purchase | null = prev ? { ...prev, ...patch } : null
+  return withOptimistic(
+    async () => {
+      if (optimistic) await db.purchases.put(optimistic)
+    },
+    async () => {
+      const out = await api.patch<PurchaseOut>(
+        `/api/purchases/${purchaseId}`,
+        purchasePatchToWire(patch),
+      )
+      const p = purchaseFromWire(out)
+      await db.purchases.put(p)
+      return p
+    },
+    async () => {
+      if (prev) await db.purchases.put(prev)
+    },
   )
-  const p = purchaseFromWire(out)
-  await db.purchases.put(p)
-  return p
 }
 
 export async function deletePurchase(purchaseId: string): Promise<void> {
-  await api.delete<void>(`/api/purchases/${purchaseId}`)
-  await db.purchases.delete(purchaseId)
-  await db.assets.where('[refType+refId]').equals(['purchase', purchaseId]).delete()
+  const prev = await db.purchases.get(purchaseId)
+  await withOptimistic(
+    async () => {
+      await db.purchases.delete(purchaseId)
+    },
+    async () => {
+      await api.delete<void>(`/api/purchases/${purchaseId}`)
+    },
+    async () => {
+      if (prev) await db.purchases.put(prev)
+    },
+  )
 }
 
 // ─── Reminders ───────────────────────────────────────────────────
@@ -400,31 +598,72 @@ export async function createReminder(
   projectId: string,
   input: Omit<Reminder, 'id' | 'projectId'>,
 ): Promise<Reminder> {
-  const out = await api.post<ReminderOut>(
-    `/api/projects/${projectId}/reminders`,
-    reminderToWire(input),
+  const tempId = uid('tmp-rem')
+  const placeholder: Reminder = {
+    ...input,
+    id: tempId,
+    projectId,
+  }
+  return withOptimistic(
+    async () => {
+      await db.reminders.put(placeholder)
+    },
+    async () => {
+      const out = await api.post<ReminderOut>(
+        `/api/projects/${projectId}/reminders`,
+        reminderToWire(input),
+      )
+      const r = reminderFromWire(out)
+      await db.transaction('rw', db.reminders, async () => {
+        await db.reminders.delete(tempId)
+        await db.reminders.put(r)
+      })
+      return r
+    },
+    async () => {
+      await db.reminders.delete(tempId)
+    },
   )
-  const r = reminderFromWire(out)
-  await db.reminders.put(r)
-  return r
 }
 
 export async function updateReminder(
   reminderId: string,
   patch: Partial<Reminder>,
 ): Promise<Reminder> {
-  const out = await api.patch<ReminderOut>(
-    `/api/reminders/${reminderId}`,
-    reminderPatchToWire(patch),
+  const prev = await db.reminders.get(reminderId)
+  const optimistic: Reminder | null = prev ? { ...prev, ...patch } : null
+  return withOptimistic(
+    async () => {
+      if (optimistic) await db.reminders.put(optimistic)
+    },
+    async () => {
+      const out = await api.patch<ReminderOut>(
+        `/api/reminders/${reminderId}`,
+        reminderPatchToWire(patch),
+      )
+      const r = reminderFromWire(out)
+      await db.reminders.put(r)
+      return r
+    },
+    async () => {
+      if (prev) await db.reminders.put(prev)
+    },
   )
-  const r = reminderFromWire(out)
-  await db.reminders.put(r)
-  return r
 }
 
 export async function deleteReminder(reminderId: string): Promise<void> {
-  await api.delete<void>(`/api/reminders/${reminderId}`)
-  await db.reminders.delete(reminderId)
+  const prev = await db.reminders.get(reminderId)
+  await withOptimistic(
+    async () => {
+      await db.reminders.delete(reminderId)
+    },
+    async () => {
+      await api.delete<void>(`/api/reminders/${reminderId}`)
+    },
+    async () => {
+      if (prev) await db.reminders.put(prev)
+    },
+  )
 }
 
 // ─── Demo ────────────────────────────────────────────────────────
@@ -482,10 +721,14 @@ interface AssetOut {
 }
 
 function assetFromWire(a: AssetOut): AssetSummary {
+  // Backend currently only emits 'node' | 'purchase', but the wire field
+  // is `str` server-side — guard so an unexpected value doesn't silently
+  // wrong-type downstream filters.
+  const refType: 'node' | 'purchase' = a.ref_type === 'purchase' ? 'purchase' : 'node'
   return {
     id: a.id,
     projectId: a.project_id,
-    refType: a.ref_type as 'node' | 'purchase',
+    refType,
     refId: a.ref_id,
     contentUrl: authedUrl(`/api/assets/${a.id}/content`),
     fileName: a.file_name,

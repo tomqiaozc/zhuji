@@ -108,7 +108,6 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
           totalPrice,
           purchaseDate,
           purchaseUrl: purchaseUrl.trim() || undefined,
-          imageIds: [],
           remark: remark.trim() || undefined,
         })
         pushToast('已记录新采购', 'success', 2400)
