@@ -3,6 +3,7 @@ import MiniSearch from 'minisearch'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/db'
 import { useApp } from '@/store/app'
+import { Modal } from './ui/Modal'
 
 interface Props {
   projectId: string
@@ -23,7 +24,7 @@ interface Doc {
 function tokenize(text: string): string[] {
   const tokens: string[] = []
   if (!text) return tokens
-  for (const word of text.toLowerCase().split(/[\s,，.。;；!！?？:：、/\-—_()（）"'"'`<>{}\[\]]+/)) {
+  for (const word of text.toLowerCase().split(/[\s,，.。;；!！?？:：、/\-—_()（）"'"'`<>{}[\]]+/)) {
     if (!word) continue
     // 全英数：直接作为一个 token
     if (/^[a-z0-9.]+$/.test(word)) {
@@ -154,46 +155,54 @@ export function SearchPalette({ projectId, onClose, onJumpNode }: Props) {
   }
 
   return (
-    <div className="modal-bg search-bg" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="search-palette" role="dialog" aria-modal="true">
-        <input
-          ref={inputRef}
-          className="search-input"
-          type="text"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="搜索节点、采购、避坑要点、备注…  (Esc 关闭)"
-          data-testid="search-input"
-        />
-        <div className="search-results">
-          {results.length === 0 ? (
-            <div className="empty">没有匹配</div>
-          ) : (
-            results.map((r, i) => {
-              const d = r as unknown as Doc
-              return (
-                <div
-                  key={r.id}
-                  className={`search-item ${i === activeIdx ? 'active' : ''}`}
-                  onMouseEnter={() => setActiveIdx(i)}
-                  onClick={() => jump(d)}
-                >
-                  <span className={`kind-badge kind-${d.kind}`}>{labelOf(d.kind)}</span>
-                  <div className="meta">
-                    <div className="t">{d.title}</div>
-                    {d.meta && <div className="s">{d.meta}</div>}
-                  </div>
+    <Modal
+      onClose={onClose}
+      className="modal-bg search-bg"
+      panelClassName="search-palette"
+      labelledBy="search-palette-title"
+    >
+      <h2 id="search-palette-title" className="sr-only">全局搜索</h2>
+      <input
+        ref={inputRef}
+        className="search-input"
+        type="text"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={handleKey}
+        placeholder="搜索节点、采购、避坑要点、备注…  (Esc 关闭)"
+        data-testid="search-input"
+        data-autofocus
+        aria-label="搜索"
+      />
+      <div className="search-results" role="listbox">
+        {results.length === 0 ? (
+          <div className="empty">没有匹配</div>
+        ) : (
+          results.map((r, i) => {
+            const d = r as unknown as Doc
+            return (
+              <div
+                key={r.id}
+                className={`search-item ${i === activeIdx ? 'active' : ''}`}
+                onMouseEnter={() => setActiveIdx(i)}
+                onClick={() => jump(d)}
+                role="option"
+                aria-selected={i === activeIdx}
+              >
+                <span className={`kind-badge kind-${d.kind}`}>{labelOf(d.kind)}</span>
+                <div className="meta">
+                  <div className="t">{d.title}</div>
+                  {d.meta && <div className="s">{d.meta}</div>}
                 </div>
-              )
-            })
-          )}
-        </div>
-        <div className="search-foot">
-          ↑↓ 切换 · ⏎ 跳转 · Esc 关闭 · 共 {results.length} 条
-        </div>
+              </div>
+            )
+          })
+        )}
       </div>
-    </div>
+      <div className="search-foot">
+        ↑↓ 切换 · ⏎ 跳转 · Esc 关闭 · 共 {results.length} 条
+      </div>
+    </Modal>
   )
 }
 

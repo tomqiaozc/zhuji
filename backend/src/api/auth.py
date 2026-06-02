@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 
 from src.auth.dependencies import get_current_user
+from src.auth.rate_limit import check_login_rate_limit, record_login_failure
 from src.auth.security import (
     create_access_token,
     create_asset_viewer_token,
@@ -48,10 +49,18 @@ async def register(payload: RegisterRequest, db: "AsyncSession" = Depends(get_db
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(payload: LoginRequest, db: "AsyncSession" = Depends(get_db)) -> TokenResponse:
+async def login(
+    payload: LoginRequest,
+    request: Request,
+    db: "AsyncSession" = Depends(get_db),
+) -> TokenResponse:
+    # Throttle BEFORE the DB hit so a flood of bad attempts can't
+    # also DoS Postgres with bcrypt verifies.
+    check_login_rate_limit(request, payload.username)
     result = await db.execute(select(User).where(User.username == payload.username))
     user = result.scalar_one_or_none()
     if user is None or not verify_password(payload.password, user.password_hash):
+        record_login_failure(request, payload.username)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
     return TokenResponse(
         access_token=create_access_token(user.id),

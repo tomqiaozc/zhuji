@@ -1,0 +1,15 @@
+dist
+dev-dist
+build
+node_modules
+coverage
+test-results
+playwright-report
+backend
+docs
+infra
+deploy
+public
+zhuji-demo.html
+package-lock.json
+*.min.js

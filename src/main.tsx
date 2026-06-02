@@ -6,6 +6,7 @@ import { useApp } from './store/app'
 import { useAuth } from './store/auth'
 import { clearAssetViewerToken, configureApi } from './lib/api'
 import { clearLocalCache, hydrateEverything } from './lib/repository'
+import { registerPwa } from './lib/pwa'
 import './styles.css'
 
 // Wire API client to auth store. Token is read on every request; a 401
@@ -76,3 +77,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <Root />
   </React.StrictMode>,
 )
+
+// Service-worker registration happens after the initial render so it
+// can't block paint. The helper itself is a no-op in dev.
+void registerPwa()

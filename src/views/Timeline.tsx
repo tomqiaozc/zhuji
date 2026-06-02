@@ -320,7 +320,7 @@ export function Timeline({ project }: Props) {
       </div>
 
       <div className="card" style={{ marginTop: 12 }}>
-        <div className="card-title">图例</div>
+        <h2 className="card-title">图例</h2>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
           {(['done', 'doing', 'todo', 'skipped'] as const).map((s) => (
             <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>

@@ -20,6 +20,16 @@ if TYPE_CHECKING:
 router = APIRouter(tags=["purchases"])
 
 
+def _compute_total(unit_price: float, quantity: float) -> float:
+    """Authoritative total = unit_price * quantity, rounded to 2dp.
+
+    We never trust the client-supplied total_price because a malicious or
+    buggy client could otherwise pin a row at a fictional value (free TVs,
+    negative spend skewing dashboards, etc.).
+    """
+    return round(float(unit_price) * float(quantity), 2)
+
+
 @router.get("/api/projects/{project_id}/purchases", response_model=list[PurchaseOut])
 async def list_purchases(
     project_id: UUID,
@@ -54,7 +64,14 @@ async def create_purchase(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="节点不属于该项目",
             )
-    purchase = Purchase(project_id=project_id, **payload.model_dump(exclude_unset=True))
+    data = payload.model_dump(exclude_unset=True)
+    # Server is authoritative for total_price — ignore whatever the
+    # client sent and recompute from unit_price * quantity.
+    data.pop("total_price", None)
+    unit_price = data.get("unit_price", 0)
+    quantity = data.get("quantity", 1)
+    data["total_price"] = _compute_total(unit_price, quantity)
+    purchase = Purchase(project_id=project_id, **data)
     db.add(purchase)
     await db.commit()
     await db.refresh(purchase)
@@ -83,8 +100,13 @@ async def update_purchase(
         node = await get_user_node(db, user, data["node_id"])
         if node.project_id != purchase.project_id:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="节点不属于该项目")
+    # Drop any client-supplied total_price — we'll recompute below.
+    data.pop("total_price", None)
     for k, v in data.items():
         setattr(purchase, k, v)
+    # Recompute against the post-patch unit_price/quantity so adjusting
+    # one without sending the other still produces a consistent total.
+    purchase.total_price = _compute_total(purchase.unit_price, purchase.quantity)
     await db.commit()
     await db.refresh(purchase)
     return PurchaseOut.model_validate(purchase)

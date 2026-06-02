@@ -8,6 +8,7 @@ import {
 } from '@/data/userTemplates'
 import { confirmDialog } from '@/lib/dialog'
 import type { StageTemplate, StageTemplateNode } from '@/types'
+import { Modal } from './ui/Modal'
 
 interface Props {
   onClose: () => void
@@ -170,12 +171,12 @@ export function TemplateEditor({ onClose }: Props) {
   }
 
   return (
-    <div className="modal-bg" data-testid="template-editor" onClick={onClose}>
-      <div
-        className="modal"
-        style={{ maxWidth: 980, width: '92vw', padding: 0 }}
-        onClick={(e) => e.stopPropagation()}
-      >
+    <Modal
+      onClose={onClose}
+      testId="template-editor"
+      labelledBy="template-editor-title"
+      panelStyle={{ maxWidth: 980, width: '92vw', padding: 0 }}
+    >
         <div
           style={{
             display: 'flex',
@@ -185,7 +186,7 @@ export function TemplateEditor({ onClose }: Props) {
             borderBottom: '1px solid var(--border)',
           }}
         >
-          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>节点模板管理</h2>
+          <h2 id="template-editor-title" style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>节点模板管理</h2>
           <button className="icon-btn" onClick={onClose} aria-label="关闭">
             ✕
           </button>
@@ -351,7 +352,6 @@ export function TemplateEditor({ onClose }: Props) {
             保存模板
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
 }

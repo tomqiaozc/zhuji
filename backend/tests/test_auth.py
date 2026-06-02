@@ -70,3 +70,48 @@ async def test_me_without_token_is_401(client: AsyncClient) -> None:
 async def test_invalid_token_is_401(client: AsyncClient) -> None:
     r = await client.get("/api/auth/me", headers=auth_headers("garbage"))
     assert r.status_code == 401
+
+
+async def test_login_throttle_blocks_after_repeated_failures(client: AsyncClient) -> None:
+    """A flood of wrong-password attempts must eventually 429 instead of 401.
+
+    Defends against credential-stuffing. Uses the username-bucket limit
+    (5/window) — once we hit it, even a CORRECT password should still
+    be rejected until the window expires.
+    """
+    info = await register_user(client, username="frank")
+    for _ in range(5):
+        r = await client.post(
+            "/api/auth/login",
+            json={"username": info["username"], "password": "wrong-pw-12345"},
+        )
+        assert r.status_code == 401, r.text
+    r = await client.post(
+        "/api/auth/login",
+        json={"username": info["username"], "password": info["password"]},
+    )
+    assert r.status_code == 429, r.text
+    assert r.headers.get("retry-after")
+
+
+async def test_login_throttle_per_username_isolates_other_accounts(
+    client: AsyncClient,
+) -> None:
+    """A bad actor pounding account A must not lock out account B."""
+    a = await register_user(client, username="ggraham")
+    b = await register_user(client, username="hhopper")
+    for _ in range(5):
+        await client.post(
+            "/api/auth/login",
+            json={"username": a["username"], "password": "wrong-pw-12345"},
+        )
+    r_a = await client.post(
+        "/api/auth/login",
+        json={"username": a["username"], "password": a["password"]},
+    )
+    assert r_a.status_code == 429
+    r_b = await client.post(
+        "/api/auth/login",
+        json={"username": b["username"], "password": b["password"]},
+    )
+    assert r_b.status_code == 200, r_b.text

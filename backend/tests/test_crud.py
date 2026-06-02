@@ -88,22 +88,36 @@ async def test_purchase_crud(client: AsyncClient) -> None:
             "category": "卫浴",
             "unit_price": 2000,
             "quantity": 1,
-            "total_price": 2000,
+            # Send a wrong total_price on purpose — server must ignore it
+            # and recompute from unit_price * quantity (= 2000).
+            "total_price": 999999,
         },
     )
     assert r.status_code == 201
     purchase_id = r.json()["id"]
+    assert r.json()["total_price"] == 2000
 
     r = await client.get(f"/api/projects/{pid}/purchases", headers=auth_headers(info["token"]))
     assert len(r.json()) == 1
 
+    # PATCH that only sends total_price must still recompute from the
+    # unchanged unit_price * quantity, not honor the client value.
     r = await client.patch(
         f"/api/purchases/{purchase_id}",
         headers=auth_headers(info["token"]),
-        json={"total_price": 1800},
+        json={"total_price": 1},
     )
     assert r.status_code == 200
-    assert r.json()["total_price"] == 1800
+    assert r.json()["total_price"] == 2000
+
+    # PATCH that changes quantity must recompute total_price accordingly.
+    r = await client.patch(
+        f"/api/purchases/{purchase_id}",
+        headers=auth_headers(info["token"]),
+        json={"quantity": 2},
+    )
+    assert r.status_code == 200
+    assert r.json()["total_price"] == 4000
 
 
 async def test_reminder_crud(client: AsyncClient) -> None:

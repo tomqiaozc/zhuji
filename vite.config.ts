@@ -22,7 +22,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' + injectRegister: false means we own SW registration
+      // in src/lib/pwa.ts so we can show a toast when an update is
+      // ready instead of silently swapping the app while the user is
+      // mid-edit.
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['favicon.svg'],
       manifest: {
         name: '筑迹 Zhuji',

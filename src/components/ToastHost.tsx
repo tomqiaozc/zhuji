@@ -36,7 +36,12 @@ export function ToastHost() {
           <div
             key={it.id}
             data-testid={`toast-${it.level}`}
-            onClick={() => dismissToast(it.id)}
+            onClick={(e) => {
+              // Don't dismiss when the action button is clicked — let
+              // the action handler own its own toast lifecycle.
+              if ((e.target as HTMLElement).closest('button')) return
+              if (!it.action) dismissToast(it.id)
+            }}
             style={{
               background: c.bg,
               border: `1px solid ${c.border}`,
@@ -45,10 +50,54 @@ export function ToastHost() {
               borderRadius: 6,
               fontSize: 13,
               boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              cursor: 'pointer',
+              cursor: it.action ? 'default' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
             }}
           >
-            {it.text}
+            <span style={{ flex: 1 }}>{it.text}</span>
+            {it.action && (
+              <>
+                <button
+                  type="button"
+                  data-testid={`toast-action-${it.id}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    it.action!.onClick()
+                  }}
+                  style={{
+                    background: c.fg,
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 4,
+                    padding: '4px 10px',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {it.action.label}
+                </button>
+                <button
+                  type="button"
+                  aria-label="忽略"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    dismissToast(it.id)
+                  }}
+                  style={{
+                    background: 'transparent',
+                    color: c.fg,
+                    border: 'none',
+                    fontSize: 14,
+                    cursor: 'pointer',
+                    padding: '2px 6px',
+                  }}
+                >
+                  ✕
+                </button>
+              </>
+            )}
           </div>
         )
       })}

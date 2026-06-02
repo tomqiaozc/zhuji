@@ -11,7 +11,7 @@
 
 import { clearLocalCache, loadDemoProject as repoLoadDemo, type LoadDemoResult } from '@/lib/repository'
 
-export interface DemoSeedResult extends LoadDemoResult {}
+export type DemoSeedResult = LoadDemoResult
 
 export async function loadDemoProject(): Promise<DemoSeedResult> {
   return repoLoadDemo()

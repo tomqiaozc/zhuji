@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Modal } from './ui/Modal'
 
 const LS_KEY = 'zhuji-onboarded-node-workspace-v1'
 
@@ -58,82 +59,81 @@ export function NodeWorkspaceOnboarding() {
   const cur = STEPS[step]
 
   return (
-    <div
-      className="modal-bg"
-      data-testid="node-onboarding"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) dismiss()
-      }}
-      style={{ zIndex: 250 }}
+    <Modal
+      onClose={dismiss}
+      testId="node-onboarding"
+      zIndex={250}
+      labelledBy="onboarding-title"
+      panelStyle={{ maxWidth: 460 }}
     >
-      <div className="modal" style={{ maxWidth: 460 }}>
-        <div style={{ padding: 20 }}>
-          <div
-            style={{
-              display: 'flex',
-              gap: 4,
-              marginBottom: 16,
-              justifyContent: 'center',
-            }}
-          >
-            {STEPS.map((_, i) => (
-              <span
-                key={i}
-                style={{
-                  width: i === step ? 24 : 8,
-                  height: 4,
-                  borderRadius: 2,
-                  background: i === step ? 'var(--primary)' : 'var(--border-strong)',
-                  transition: 'width 0.2s',
-                }}
-              />
-            ))}
-          </div>
-          <h3 style={{ margin: '0 0 8px', fontSize: 18 }}>
-            {step + 1}. {cur.title}
-          </h3>
-          <p style={{ color: 'var(--text-soft)', fontSize: 13, lineHeight: 1.7, margin: 0 }}>
-            {cur.body}
-          </p>
-        </div>
+      <div style={{ padding: 20 }}>
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
-            padding: '12px 20px',
-            borderTop: '1px solid var(--border)',
-            background: '#fafafa',
+            gap: 4,
+            marginBottom: 16,
+            justifyContent: 'center',
           }}
         >
-          <button className="btn btn-sm" onClick={dismiss} data-testid="onboarding-skip">
-            跳过
-          </button>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {step > 0 && (
-              <button className="btn btn-sm" onClick={() => setStep((s) => s - 1)}>
-                上一步
-              </button>
-            )}
-            {!isLast ? (
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={() => setStep((s) => s + 1)}
-                data-testid="onboarding-next"
-              >
-                下一步
-              </button>
-            ) : (
-              <button
-                className="btn btn-sm btn-primary"
-                onClick={dismiss}
-                data-testid="onboarding-done"
-              >
-                开始使用
-              </button>
-            )}
-          </div>
+          {STEPS.map((_, i) => (
+            <span
+              key={i}
+              style={{
+                width: i === step ? 24 : 8,
+                height: 4,
+                borderRadius: 2,
+                background: i === step ? 'var(--primary)' : 'var(--border-strong)',
+                transition: 'width 0.2s',
+              }}
+            />
+          ))}
+        </div>
+        <h2 id="onboarding-title" style={{ margin: '0 0 8px', fontSize: 18 }}>
+          {step + 1}. {cur.title}
+        </h2>
+        <p style={{ color: 'var(--text-soft)', fontSize: 13, lineHeight: 1.7, margin: 0 }}>
+          {cur.body}
+        </p>
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          padding: '12px 20px',
+          borderTop: '1px solid var(--border)',
+          background: '#fafafa',
+        }}
+      >
+        <button className="btn btn-sm" onClick={dismiss} data-testid="onboarding-skip">
+          跳过
+        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {step > 0 && (
+            <button className="btn btn-sm" onClick={() => setStep((s) => s - 1)}>
+              上一步
+            </button>
+          )}
+          {!isLast ? (
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={() => setStep((s) => s + 1)}
+              data-testid="onboarding-next"
+              data-autofocus
+            >
+              下一步
+            </button>
+          ) : (
+            <button
+              className="btn btn-sm btn-primary"
+              onClick={dismiss}
+              data-testid="onboarding-done"
+              data-autofocus
+            >
+              开始使用
+            </button>
+          )}
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

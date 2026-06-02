@@ -12,12 +12,24 @@ os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET", "test-only-jwt-secret-not-for-production-0123456789abcdef")
 
 import pytest_asyncio
+import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from src.auth.rate_limit import reset_login_throttle
 from src.db import session as db_session_module
 from src.main import app
 from src.models.base import Base
+
+
+@pytest.fixture(autouse=True)
+def _reset_login_throttle():
+    # The login throttle is process-global by design (single Gunicorn
+    # worker in prod). Tests run in the same process and would leak
+    # buckets across cases, so clear it before AND after each test.
+    reset_login_throttle()
+    yield
+    reset_login_throttle()
 
 
 @pytest_asyncio.fixture

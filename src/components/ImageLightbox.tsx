@@ -30,8 +30,28 @@ export function ImageLightbox({ images, index, onClose, onIndexChange }: Props) 
     lastTap?: number
   } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const restoreRef = useRef<HTMLElement | null>(null)
 
   const cur = images[index]
+
+  // Focus restore on close — capture the previously-focused element and
+  // send focus back when the lightbox unmounts so keyboard users land
+  // back on the thumbnail that opened them.
+  useEffect(() => {
+    restoreRef.current = document.activeElement as HTMLElement | null
+    const c = containerRef.current
+    if (c) c.focus({ preventScroll: true })
+    return () => {
+      const el = restoreRef.current
+      if (el && document.contains(el)) {
+        try {
+          el.focus({ preventScroll: true })
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }, [])
 
   const reset = () => {
     setZoom(1)
@@ -139,6 +159,10 @@ export function ImageLightbox({ images, index, onClose, onIndexChange }: Props) 
       ref={containerRef}
       className="lightbox"
       data-testid="image-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={cur.caption ?? '图片预览'}
+      tabIndex={-1}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

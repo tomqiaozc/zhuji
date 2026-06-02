@@ -9,7 +9,7 @@
   --border-strong: #d4d4d4;
   --text: #1a1a1a;
   --text-soft: #6b7280;
-  --text-mute: #9ca3af;
+  --text-mute: #525a6b;
   --primary: #2563eb;
   --primary-soft: #eff6ff;
   --success: #16a34a;
@@ -293,7 +293,7 @@ textarea {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-soft);
-  margin-bottom: 12px;
+  margin: 0 0 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1035,10 +1035,19 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
 }
 
-.menu-item:hover {
+.menu-item:hover,
+.menu-item:focus-visible,
+.menu-item-active {
   background: #f3f4f6;
+  outline: none;
 }
 
 .menu-divider {
@@ -1452,7 +1461,7 @@ textarea {
 }
 .auth-hint {
   font-style: normal;
-  color: var(--text-mute, #9ca3af);
+  color: var(--text-mute, #525a6b);
   font-weight: 400;
 }
 .auth-field input {
