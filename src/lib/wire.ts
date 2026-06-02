@@ -5,7 +5,15 @@
  */
 
 import { sanitizeHtml } from '@/lib/sanitize'
-import type { ChecklistItem, DecorNode, NodeStatus, Project, ProjectType, Purchase, Reminder } from '@/types'
+import type {
+  ChecklistItem,
+  DecorNode,
+  NodeStatus,
+  Project,
+  ProjectType,
+  Purchase,
+  Reminder,
+} from '@/types'
 
 // ─── Wire types ──────────────────────────────────────────────────
 

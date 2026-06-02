@@ -340,9 +340,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip
-                    formatter={(v, name) => [fmtMoney(toMoney(v)), String(name ?? '')]}
-                  />
+                  <Tooltip formatter={(v, name) => [fmtMoney(toMoney(v)), String(name ?? '')]} />
                   <Legend verticalAlign="bottom" height={24} />
                 </PieChart>
               </ResponsiveContainer>
@@ -483,7 +481,8 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
                     <div className="meta">
                       <div className="t">{p.name}</div>
                       <div className="s">
-                        {node?.stage ?? '—'} · {p.purchaseDate ? dayjs(p.purchaseDate).format('M月D日') : '日期未填'}
+                        {node?.stage ?? '—'} ·{' '}
+                        {p.purchaseDate ? dayjs(p.purchaseDate).format('M月D日') : '日期未填'}
                         {p.channel ? ` · ${p.channel}` : ''}
                       </div>
                     </div>

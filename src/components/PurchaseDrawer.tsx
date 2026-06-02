@@ -153,135 +153,135 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
           />
         </div>
         <div className="form-grid">
+          <div className="form-row">
+            <label>规格</label>
+            <input
+              type="text"
+              value={spec}
+              onChange={(e) => setSpec(e.target.value)}
+              placeholder="800x800"
+            />
+          </div>
+          <div className="form-row">
+            <label>品牌</label>
+            <input
+              type="text"
+              value={brand}
+              onChange={(e) => setBrand(e.target.value)}
+              placeholder="马可波罗"
+            />
+          </div>
+        </div>
+        <div className="form-grid">
+          <div className="form-row">
+            <label>所属节点 *</label>
+            <select value={nodeId} onChange={(e) => setNodeId(e.target.value)}>
+              {nodes.map((n) => (
+                <option key={n.id} value={n.id}>
+                  {n.stage} / {n.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-row">
+            <label>品类</label>
+            <select value={category} onChange={(e) => setCategory(e.target.value)}>
+              {DEFAULT_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="form-grid">
+          <div className="form-row">
+            <label>单价 ¥ *</label>
+            <input
+              type="number"
+              data-testid="purchase-unit-price"
+              value={unitPrice}
+              onChange={(e) => setUnitPrice(e.target.value)}
+              placeholder="160"
+              step="0.01"
+            />
+          </div>
+          <div className="form-row">
+            <label>数量 *</label>
+            <input
+              type="number"
+              data-testid="purchase-quantity"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder="80"
+              step="0.01"
+            />
+          </div>
+        </div>
         <div className="form-row">
-          <label>规格</label>
+          <label>总价（自动计算）</label>
           <input
             type="text"
-            value={spec}
-            onChange={(e) => setSpec(e.target.value)}
-            placeholder="800x800"
+            value={fmtMoney(totalPrice)}
+            readOnly
+            style={{ background: '#f9fafb' }}
           />
         </div>
+        <div className="form-grid">
+          <div className="form-row">
+            <label>购买日期 *</label>
+            <input
+              type="date"
+              value={purchaseDate}
+              onChange={(e) => setPurchaseDate(e.target.value)}
+            />
+          </div>
+          <div className="form-row">
+            <label>购买渠道</label>
+            <input
+              type="text"
+              value={channel}
+              onChange={(e) => setChannel(e.target.value)}
+              placeholder="天猫 / 京东 / 实体店"
+            />
+          </div>
+        </div>
         <div className="form-row">
-          <label>品牌</label>
+          <label>购买链接</label>
           <input
-            type="text"
-            value={brand}
-            onChange={(e) => setBrand(e.target.value)}
-            placeholder="马可波罗"
-          />
-        </div>
-      </div>
-      <div className="form-grid">
-        <div className="form-row">
-          <label>所属节点 *</label>
-          <select value={nodeId} onChange={(e) => setNodeId(e.target.value)}>
-            {nodes.map((n) => (
-              <option key={n.id} value={n.id}>
-                {n.stage} / {n.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="form-row">
-          <label>品类</label>
-          <select value={category} onChange={(e) => setCategory(e.target.value)}>
-            {DEFAULT_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-      <div className="form-grid">
-        <div className="form-row">
-          <label>单价 ¥ *</label>
-          <input
-            type="number"
-            data-testid="purchase-unit-price"
-            value={unitPrice}
-            onChange={(e) => setUnitPrice(e.target.value)}
-            placeholder="160"
-            step="0.01"
+            type="url"
+            value={purchaseUrl}
+            onChange={(e) => setPurchaseUrl(e.target.value)}
+            placeholder="https://detail.tmall.com/item.htm?id=..."
           />
         </div>
         <div className="form-row">
-          <label>数量 *</label>
-          <input
-            type="number"
-            data-testid="purchase-quantity"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            placeholder="80"
-            step="0.01"
+          <label>备注</label>
+          <textarea
+            rows={3}
+            value={remark}
+            onChange={(e) => setRemark(e.target.value)}
+            placeholder="尺寸、安装注意事项…"
           />
         </div>
-      </div>
-      <div className="form-row">
-        <label>总价（自动计算）</label>
-        <input
-          type="text"
-          value={fmtMoney(totalPrice)}
-          readOnly
-          style={{ background: '#f9fafb' }}
-        />
-      </div>
-      <div className="form-grid">
-        <div className="form-row">
-          <label>购买日期 *</label>
-          <input
-            type="date"
-            value={purchaseDate}
-            onChange={(e) => setPurchaseDate(e.target.value)}
-          />
+        <div className="drawer-actions">
+          {error && (
+            <span style={{ color: 'var(--danger, #dc2626)', fontSize: 13, marginRight: 'auto' }}>
+              {error}
+            </span>
+          )}
+          <button className="btn" onClick={onClose}>
+            取消
+          </button>
+          <button
+            className="btn btn-primary"
+            data-testid="purchase-save"
+            onClick={save}
+            disabled={!name.trim() || !nodeId || busy}
+          >
+            {busy ? '保存中…' : '保存'}
+          </button>
         </div>
-        <div className="form-row">
-          <label>购买渠道</label>
-          <input
-            type="text"
-            value={channel}
-            onChange={(e) => setChannel(e.target.value)}
-            placeholder="天猫 / 京东 / 实体店"
-          />
-        </div>
-      </div>
-      <div className="form-row">
-        <label>购买链接</label>
-        <input
-          type="url"
-          value={purchaseUrl}
-          onChange={(e) => setPurchaseUrl(e.target.value)}
-          placeholder="https://detail.tmall.com/item.htm?id=..."
-        />
-      </div>
-      <div className="form-row">
-        <label>备注</label>
-        <textarea
-          rows={3}
-          value={remark}
-          onChange={(e) => setRemark(e.target.value)}
-          placeholder="尺寸、安装注意事项…"
-        />
-      </div>
-      <div className="drawer-actions">
-        {error && (
-          <span style={{ color: 'var(--danger, #dc2626)', fontSize: 13, marginRight: 'auto' }}>
-            {error}
-          </span>
-        )}
-        <button className="btn" onClick={onClose}>
-          取消
-        </button>
-        <button
-          className="btn btn-primary"
-          data-testid="purchase-save"
-          onClick={save}
-          disabled={!name.trim() || !nodeId || busy}
-        >
-          {busy ? '保存中…' : '保存'}
-        </button>
-      </div>
       </div>
     </Modal>
   )

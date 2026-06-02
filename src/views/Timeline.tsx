@@ -75,6 +75,28 @@ export function Timeline({ project }: Props) {
     return { min, max, totalDays: max.diff(min, 'day') + 1 }
   }, [valid])
 
+  // ESC cancels an in-progress drag without committing.
+  // Must run before the `if (!range) return` below — moving it after the
+  // early return would violate the rules of hooks (the hook would be
+  // skipped on renders where the project has no scheduled nodes).
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      const s = dragRef.current
+      if (!s) return
+      dragRef.current = null
+      setDraft((prev) => {
+        if (!(s.nodeId in prev)) return prev
+        const next = { ...prev }
+        delete next[s.nodeId]
+        return next
+      })
+      pushToast('已取消拖拽', 'info', 1800)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   if (!range) {
     return (
       <section className="view">
@@ -172,25 +194,6 @@ export function Timeline({ project }: Props) {
       pushToast(`保存失败：${(err as Error)?.message ?? ''}`, 'error', 6000)
     }
   }
-
-  // ESC cancels an in-progress drag without committing.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return
-      const s = dragRef.current
-      if (!s) return
-      dragRef.current = null
-      setDraft((prev) => {
-        if (!(s.nodeId in prev)) return prev
-        const next = { ...prev }
-        delete next[s.nodeId]
-        return next
-      })
-      pushToast('已取消拖拽', 'info', 1800)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
 
   return (
     <section className="view">

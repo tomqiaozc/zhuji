@@ -26,8 +26,7 @@ export class ZhujiDB extends Dexie {
     //      hit the index instead of scanning every node in the project.
     this.version(2).stores({
       assets: null,
-      nodes:
-        'id, projectId, stage, order, status, [projectId+order], [projectId+status]',
+      nodes: 'id, projectId, stage, order, status, [projectId+order], [projectId+status]',
     })
   }
 }
