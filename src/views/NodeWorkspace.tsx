@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
@@ -68,6 +68,10 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
   }, [nodes, activeNodeId, setActiveNode])
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const toggleCollapsed = useCallback(
+    (stage: string) => setCollapsed((s) => ({ ...s, [stage]: !s[stage] })),
+    [],
+  )
 
   const grouped = useMemo(() => {
     const map = new Map<string, DecorNode[]>()
@@ -88,7 +92,7 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
               <div key={stage} className="stage-group">
                 <button
                   className={`stage-header ${isCollapsed ? 'collapsed' : ''}`}
-                  onClick={() => setCollapsed((s) => ({ ...s, [stage]: !s[stage] }))}
+                  onClick={() => toggleCollapsed(stage)}
                 >
                   <span className="caret">▾</span>
                   <span className="stage-num">{si}</span>
@@ -121,7 +125,11 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
   )
 }
 
-function NodePanel({
+// Memoize so the heavy panel (live queries, tabs, charts) doesn't
+// re-render when only the sidebar's `collapsed` state changes. The
+// parent now passes `onAddPurchase` through unchanged, so reference
+// equality holds across sidebar interactions.
+const NodePanel = memo(function NodePanel({
   node,
   project,
   onAddPurchase,
@@ -333,7 +341,7 @@ function NodePanel({
       )}
     </div>
   )
-}
+})
 
 function DateField({
   label,

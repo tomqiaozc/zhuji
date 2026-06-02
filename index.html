@@ -2,6 +2,18 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Defense-in-depth CSP. Notes accept free-form HTML; even though
+      sanitize.ts strips dangerous tags on both write and read, a CSP
+      that bans inline / remote scripts keeps any sanitizer gap from
+      escalating to XSS. style-src 'unsafe-inline' is required by
+      recharts (it emits inline style attributes); img-src includes
+      blob: and data: for asset previews and inline SVG icons.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+    />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#2563eb" />

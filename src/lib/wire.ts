@@ -4,6 +4,7 @@
  * the rest of the repository layer stays JSON-shape-agnostic.
  */
 
+import { sanitizeHtml } from '@/lib/sanitize'
 import type { ChecklistItem, DecorNode, NodeStatus, Project, ProjectType, Purchase, Reminder } from '@/types'
 
 // ─── Wire types ──────────────────────────────────────────────────
@@ -215,7 +216,11 @@ export function nodeFromWire(n: NodeOut, checklist: ChecklistItem[] = []): Decor
     tips: n.tips,
     tipsModified: n.tips_modified,
     checklist,
-    notes: n.notes,
+    // Defense-in-depth: notes are sanitized on write via the rich-text
+    // editor, but the server stores raw HTML and another device (or a
+    // pre-sanitizer record) could send back something we never blessed.
+    // Sanitize on read so the Dexie cache + UI only ever see safe HTML.
+    notes: sanitizeHtml(n.notes),
   }
 }
 

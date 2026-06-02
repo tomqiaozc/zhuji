@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import {
@@ -63,7 +63,15 @@ const PIE_COLORS = [
   '#6b7280',
 ]
 
-export function Dashboard({ project, onAddPurchase }: Props) {
+export function Dashboard(props: Props) {
+  return <DashboardInner {...props} />
+}
+
+// Memoize the heavy inner so the parent (which re-renders on every
+// global store change) doesn't drag the chart/recharts subtree along
+// when only its own state moved. Project / onAddPurchase are stable
+// across normal navigation, so reference-equality memo is enough.
+const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: Props) {
   const jumpToPurchasesByStage = useApp((s) => s.jumpToPurchasesByStage)
   const [trendGrain, setTrendGrain] = useState<'week' | 'month'>('week')
 
@@ -489,4 +497,4 @@ export function Dashboard({ project, onAddPurchase }: Props) {
       </div>
     </section>
   )
-}
+})
