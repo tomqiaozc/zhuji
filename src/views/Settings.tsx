@@ -138,7 +138,12 @@ export function Settings({ project, onNewProject }: Props) {
           <div className="form-grid">
             <div className="form-row">
               <label>面积（㎡）</label>
-              <input type="number" value={area} onChange={(e) => setArea(e.target.value)} />
+              <input
+                type="number"
+                inputMode="decimal"
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+              />
             </div>
             <div className="form-row">
               <label>装修类型</label>

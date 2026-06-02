@@ -86,6 +86,7 @@ export function ProjectCreateModal({ allowCancel, onSubmit, onDemoLoaded, onClos
           <label>面积（㎡）</label>
           <input
             type="number"
+            inputMode="decimal"
             value={area}
             onChange={(e) => setArea(e.target.value)}
             placeholder="89"

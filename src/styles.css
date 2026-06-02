@@ -1139,8 +1139,11 @@ body,
     padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
   .project-switcher {
-    /* Stay inside the row even when the project name is long. */
-    max-width: clamp(120px, 40vw, 200px);
+    /* Stay inside the row even when the project name is long. On iPhone
+       SE 375px the row is hamburger 44 + logo-mark 22 + switcher + actions
+       (3 × icon-btn 44 + 退出 46) + gaps — leaving ~104px for the switcher.
+       Cap at 30vw to keep .topbar-actions right edge ≤ viewport width. */
+    max-width: clamp(104px, 30vw, 200px);
     min-width: 0;
     flex: 1 1 auto;
   }
@@ -1150,11 +1153,16 @@ body,
     white-space: nowrap;
   }
   /* Shrink the brand and hide username text so right-side actions stay
-     on-screen; the avatar emoji + 退出 button are still visible. */
+     on-screen; the avatar emoji + 退出 button are still visible.
+     With 44px touch targets the topbar is dense — pull padding tight
+     so 375px iPhone SE still fits the row without horizontal scroll. */
   .topbar {
-    gap: 8px;
-    padding-left: max(12px, env(safe-area-inset-left));
-    padding-right: max(12px, env(safe-area-inset-right));
+    gap: 4px;
+    padding-left: max(8px, env(safe-area-inset-left));
+    padding-right: max(8px, env(safe-area-inset-right));
+  }
+  .topbar-actions {
+    gap: 2px;
   }
   .topbar .logo span:nth-child(2) {
     display: none;
@@ -1172,6 +1180,64 @@ body,
   .menu {
     left: 8px;
     right: 8px;
+  }
+
+  /* WCAG 2.5.5 / Apple HIG: tap targets ≥ 44×44. The defaults (icon-btn
+     32×32, .btn ~34, .tab ~36, .nav-item ~32, node-link 32) were too
+     small for finger-driven use on a 6" screen. We bump the touch box
+     without changing the visual layout much — gap on .topbar-actions is
+     already small enough that the wider hit areas don't reflow the row. */
+  .icon-btn,
+  .icon-btn.hamburger,
+  .topbar-user button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .btn,
+  .btn-sm {
+    min-height: 44px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .nav-item {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .tab {
+    min-height: 44px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .node-link,
+  .stage-header {
+    min-height: 44px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  /* Make the entire Dashboard quick-filter chip row taller — these were
+     28px tall, which is the worst offender for thumb-tap accuracy.
+     The segments themselves are decorative on mobile (their widths are
+     proportional to spend, so a low-spend category is only a few px wide
+     and unusable as a tap target); the legend buttons below handle the
+     filter intent. */
+  .stage-bar {
+    height: 44px;
+    line-height: 44px;
+  }
+  .stage-legend button {
+    min-height: 44px;
+    padding: 10px 10px;
+  }
+  /* Project switcher is a real menu trigger, treat it as a tap target. */
+  .project-switcher {
+    min-height: 44px;
+  }
+  /* "去注册 / 去登录" link looks tiny against the surrounding inputs;
+     give it a real touch box. */
+  .auth-toggle button {
+    min-height: 44px;
+    padding: 8px 12px;
   }
 }
 

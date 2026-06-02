@@ -183,13 +183,33 @@ export function NodeImagesPanel({ node }: Props) {
             )}
           </div>
         ))}
-        <label className="image-add" title="添加图片" aria-disabled={busy}>
-          {busy ? '上传中…' : '+ 加图'}
+        <label className="image-add" title="从相册添加图片" aria-disabled={busy}>
+          {busy ? '上传中…' : '🖼 相册'}
           <input
             type="file"
             accept="image/*"
             multiple
             data-testid="node-image-input"
+            style={{ display: 'none' }}
+            disabled={busy}
+            onChange={(e) => {
+              void onAdd(e.target.files)
+              e.target.value = ''
+            }}
+          />
+        </label>
+        {/* Mobile-only "shoot straight from the back camera" entry — on
+            iOS Safari `capture="environment"` opens the camera app
+            directly, which the issue's owner needs for on-site purchase
+            records. Desktop browsers ignore `capture` and fall back to
+            the file picker, so it's safe to show always. */}
+        <label className="image-add" title="拍照添加图片" aria-disabled={busy}>
+          📷 拍照
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            data-testid="node-image-capture"
             style={{ display: 'none' }}
             disabled={busy}
             onChange={(e) => {

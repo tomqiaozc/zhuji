@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import {
@@ -52,6 +52,27 @@ const STAGE_COLORS: Record<string, string> = {
   收尾: '#ef4444',
 }
 
+// Track the mobile breakpoint (matches the @media (max-width: 720px) block
+// in styles.css). On mobile we render the stage-bar as decorative segments
+// without per-segment click handlers — narrow segments (3-10px wide for
+// low-spend categories) are not realistic tap targets, and the full-width
+// legend buttons below already cover the filter intent. Desktop keeps the
+// original click-to-filter behavior on each segment.
+function useIsMobile(maxWidthPx = 720): boolean {
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+    return window.matchMedia(`(max-width: ${maxWidthPx}px)`).matches
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia(`(max-width: ${maxWidthPx}px)`)
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [maxWidthPx])
+  return isMobile
+}
+
 const PIE_COLORS = [
   '#2563eb',
   '#7c3aed',
@@ -86,6 +107,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
   const doneCount = nodes.filter((n) => n.status === 'done').length
   const totalNodes = nodes.length
   const progress = totalNodes > 0 ? Math.round((doneCount / totalNodes) * 100) : 0
+  const isMobile = useIsMobile()
 
   const totalSpent = useMemo(
     () => purchases.reduce((s, p) => s + (p.totalPrice || 0), 0),
@@ -262,32 +284,61 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
             <div className="empty">还没有采购记录</div>
           ) : (
             <>
-              <div className="stage-bar" data-testid="stage-bar">
-                {stageCost.map(([stage, v]) => (
-                  <button
-                    key={stage}
-                    type="button"
-                    data-testid={`stage-bar-seg-${stage}`}
-                    onClick={() => jumpToPurchasesByStage(stage)}
-                    style={{
-                      width: `${(v / stageTotal) * 100}%`,
-                      background: STAGE_COLORS[stage] ?? '#6b7280',
-                      border: 'none',
-                      color: '#fff',
-                      cursor: 'pointer',
-                      padding: 0,
-                      fontSize: 12,
-                      lineHeight: '28px',
-                      height: 28,
-                      overflow: 'hidden',
-                      whiteSpace: 'nowrap',
-                    }}
-                    title={`${stage} ${fmtMoney(v)} · 点击查看`}
-                    aria-label={`${stage} 花费 ${fmtMoney(v)}，点击筛选采购`}
-                  >
-                    {(v / stageTotal) * 100 >= 10 ? stage : ''}
-                  </button>
-                ))}
+              <div
+                className="stage-bar"
+                data-testid="stage-bar"
+                role={isMobile ? 'img' : undefined}
+                aria-label={
+                  isMobile
+                    ? `各阶段花费分布。${stageCost
+                        .map(([s, v]) => `${s} ${fmtMoney(v)}`)
+                        .join('；')}。请用下方图例筛选采购。`
+                    : undefined
+                }
+              >
+                {stageCost.map(([stage, v]) => {
+                  const segStyle = {
+                    width: `${(v / stageTotal) * 100}%`,
+                    background: STAGE_COLORS[stage] ?? '#6b7280',
+                    border: 'none',
+                    color: '#fff',
+                    padding: 0,
+                    fontSize: 12,
+                    lineHeight: 'inherit',
+                    height: '100%',
+                    overflow: 'hidden',
+                    whiteSpace: 'nowrap',
+                  } as const
+                  const label = (v / stageTotal) * 100 >= 10 ? stage : ''
+                  // Mobile: segments are decorative. Narrow segments (3-10px
+                  // for low-spend categories) are not realistic tap targets,
+                  // and the legend buttons below already cover filtering.
+                  if (isMobile) {
+                    return (
+                      <div
+                        key={stage}
+                        data-testid={`stage-bar-seg-${stage}`}
+                        style={segStyle}
+                        aria-hidden="true"
+                      >
+                        {label}
+                      </div>
+                    )
+                  }
+                  return (
+                    <button
+                      key={stage}
+                      type="button"
+                      data-testid={`stage-bar-seg-${stage}`}
+                      onClick={() => jumpToPurchasesByStage(stage)}
+                      style={{ ...segStyle, cursor: 'pointer' }}
+                      title={`${stage} ${fmtMoney(v)} · 点击查看`}
+                      aria-label={`${stage} 花费 ${fmtMoney(v)}，点击筛选采购`}
+                    >
+                      {label}
+                    </button>
+                  )
+                })}
               </div>
               <div className="stage-legend">
                 {stageCost.map(([stage, v]) => (
