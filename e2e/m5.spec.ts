@@ -159,10 +159,7 @@ test('create new project completes in well under 10 seconds (perf regression gua
 
   // Hard ceiling: < 10 total /api/ calls. Anything approaching 60 would
   // mean the per-node hydration crept back in.
-  expect(
-    apiRequests.length,
-    `Too many /api/ requests:\n${apiRequests.join('\n')}`,
-  ).toBeLessThan(10)
+  expect(apiRequests.length, `Too many /api/ requests:\n${apiRequests.join('\n')}`).toBeLessThan(10)
 
   // Belt-and-braces: explicitly forbid the per-node checklist GET that
   // used to dominate hydration time. A single match would mean the

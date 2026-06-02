@@ -47,9 +47,7 @@ export async function compressImage(file: File): Promise<File> {
   ctx.drawImage(bitmap, 0, 0, w, h)
   bitmap.close()
 
-  const blob: Blob | null = await new Promise((res) =>
-    canvas.toBlob(res, reEncodeMime, QUALITY),
-  )
+  const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, reEncodeMime, QUALITY))
   if (!blob) return file
 
   // If reencoding somehow grew the file, keep the original.

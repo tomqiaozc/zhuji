@@ -22,7 +22,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' + injectRegister: false means we own SW registration
+      // in src/lib/pwa.ts so we can show a toast when an update is
+      // ready instead of silently swapping the app while the user is
+      // mid-edit.
+      registerType: 'prompt',
+      injectRegister: false,
       includeAssets: ['favicon.svg'],
       manifest: {
         name: '筑迹 Zhuji',
@@ -32,9 +37,7 @@ export default defineConfig({
         background_color: '#fafafa',
         display: 'standalone',
         start_url: './',
-        icons: [
-          { src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' },
-        ],
+        icons: [{ src: 'favicon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webp}'],

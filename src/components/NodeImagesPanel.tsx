@@ -13,12 +13,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/db'
 import { compressImage } from '@/lib/image'
 import { pushToast } from '@/lib/toast'
-import {
-  type AssetSummary,
-  deleteAsset,
-  listAssets,
-  uploadAsset,
-} from '@/lib/repository'
+import { type AssetSummary, deleteAsset, listAssets, uploadAsset } from '@/lib/repository'
 import { ApiError } from '@/lib/api'
 import { ImageLightbox, type LightboxImage } from '@/components/ImageLightbox'
 import { LazyImage } from '@/components/LazyImage'
@@ -43,10 +38,7 @@ export function NodeImagesPanel({ node }: Props) {
   const purchases =
     useLiveQuery(() => db.purchases.where('nodeId').equals(node.id).toArray(), [node.id]) ?? []
   const purchaseIds = useMemo(() => new Set(purchases.map((p) => p.id)), [purchases])
-  const purchaseNames = useMemo(
-    () => new Map(purchases.map((p) => [p.id, p.name])),
-    [purchases],
-  )
+  const purchaseNames = useMemo(() => new Map(purchases.map((p) => [p.id, p.name])), [purchases])
 
   const refresh = useCallback(async () => {
     const myNonce = ++refreshNonce.current
@@ -117,7 +109,7 @@ export function NodeImagesPanel({ node }: Props) {
       const msg =
         e instanceof ApiError
           ? e.message || `上传失败 (${e.status})`
-          : (e as Error)?.message ?? '上传失败'
+          : ((e as Error)?.message ?? '上传失败')
       pushToast(msg, 'error', 6000)
     } finally {
       setBusy(false)

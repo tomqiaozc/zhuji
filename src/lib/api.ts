@@ -29,10 +29,7 @@ export class ApiError extends Error {
 let getToken: () => string | null = () => null
 let onUnauthorized: () => void = () => {}
 
-export function configureApi(opts: {
-  getToken: () => string | null
-  onUnauthorized: () => void
-}) {
+export function configureApi(opts: { getToken: () => string | null; onUnauthorized: () => void }) {
   getToken = opts.getToken
   onUnauthorized = opts.onUnauthorized
 }
@@ -91,10 +88,7 @@ export async function ensureAssetViewerToken(): Promise<string> {
   if (fresh) return fresh
   if (assetViewerInflight) return assetViewerInflight
   assetViewerInflight = (async () => {
-    const out = await request<AssetViewerTokenResponse>(
-      'POST',
-      '/api/auth/asset-viewer-token',
-    )
+    const out = await request<AssetViewerTokenResponse>('POST', '/api/auth/asset-viewer-token')
     assetViewerCache = {
       token: out.token,
       expiresAt: Date.now() + out.expires_in * 1000,

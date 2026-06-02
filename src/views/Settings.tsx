@@ -65,7 +65,9 @@ export function Settings({ project, onNewProject }: Props) {
     try {
       const r = await loadDemoProject()
       setProject(r.project.id)
-      setDemoMsg(`✓ 已加载「${r.project.name}」，含 ${r.nodeCount} 个节点 / ${r.purchaseCount} 笔采购`)
+      setDemoMsg(
+        `✓ 已加载「${r.project.name}」，含 ${r.nodeCount} 个节点 / ${r.purchaseCount} 笔采购`,
+      )
       setTimeout(() => setDemoMsg(null), 3000)
     } catch (e) {
       setDemoMsg('✗ ' + ((e as Error)?.message ?? '加载失败'))
@@ -124,7 +126,7 @@ export function Settings({ project, onNewProject }: Props) {
 
       <div className="dash-grid">
         <div className="col-12 card">
-          <div className="card-title">基本信息</div>
+          <h2 className="card-title">基本信息</h2>
           <div className="form-row">
             <label>项目名称</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} />
@@ -150,11 +152,7 @@ export function Settings({ project, onNewProject }: Props) {
           <div className="form-grid">
             <div className="form-row">
               <label>开工日期</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
             </div>
             <div className="form-row">
               <label>预计完工</label>
@@ -174,7 +172,7 @@ export function Settings({ project, onNewProject }: Props) {
         </div>
 
         <div className="col-12 card">
-          <div className="card-title">账号</div>
+          <h2 className="card-title">账号</h2>
           <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
             当前登录：<strong data-testid="current-username">{user?.username ?? '—'}</strong>
             。退出登录会清空本设备的缓存，云端数据不会受影响。
@@ -196,10 +194,10 @@ export function Settings({ project, onNewProject }: Props) {
         </div>
 
         <div className="col-12 card">
-          <div className="card-title">演示数据</div>
+          <h2 className="card-title">演示数据</h2>
           <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
-            一键加载一个"已经装到一半"的真实感样本项目（89㎡ 毛坯，11 阶段 / 62 节点 /
-            约 30 笔采购），方便快速体验各项功能。可重复加载，每次新建一个独立项目，不影响你已有的数据。
+            一键加载一个"已经装到一半"的真实感样本项目（89㎡ 毛坯，11 阶段 / 62 节点 / 约 30
+            笔采购），方便快速体验各项功能。可重复加载，每次新建一个独立项目，不影响你已有的数据。
           </p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button
@@ -215,9 +213,10 @@ export function Settings({ project, onNewProject }: Props) {
         </div>
 
         <div className="col-12 card">
-          <div className="card-title">导出装修档案 PDF</div>
+          <h2 className="card-title">导出装修档案 PDF</h2>
           <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
-            生成一份当前项目的可打印档案（节点进度、各阶段花费、采购流水），在新窗口里使用浏览器的"打印 → 另存为 PDF"即可保存。
+            生成一份当前项目的可打印档案（节点进度、各阶段花费、采购流水），在新窗口里使用浏览器的"打印
+            → 另存为 PDF"即可保存。
           </p>
           <button className="btn btn-primary" onClick={handleExportPdf}>
             生成 PDF
@@ -225,10 +224,10 @@ export function Settings({ project, onNewProject }: Props) {
         </div>
 
         <div className="col-12 card">
-          <div className="card-title">节点模板管理</div>
+          <h2 className="card-title">节点模板管理</h2>
           <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
-            管理新建项目时使用的默认节点模板（阶段、节点、避坑要点、checklist）。
-            模板变更只影响<strong>新建</strong>项目，已有项目的节点不会被改动。
+            管理新建项目时使用的默认节点模板（阶段、节点、避坑要点、checklist）。 模板变更只影响
+            <strong>新建</strong>项目，已有项目的节点不会被改动。
           </p>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <button
@@ -242,7 +241,7 @@ export function Settings({ project, onNewProject }: Props) {
         </div>
 
         <div className="col-12 card">
-          <div className="card-title">危险操作</div>
+          <h2 className="card-title">危险操作</h2>
           <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
             删除当前项目会同时删除其下所有节点、采购、图片，云端无法撤销。
           </p>

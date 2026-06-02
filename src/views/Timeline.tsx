@@ -44,12 +44,12 @@ export function Timeline({ project }: Props) {
     return nodes.map((n) => {
       const d = draft[n.id]
       if (d) return { node: n, start: d.start, end: d.end }
-      const start = mode === 'planned' ? n.plannedStart : n.actualStart ?? n.plannedStart
+      const start = mode === 'planned' ? n.plannedStart : (n.actualStart ?? n.plannedStart)
       const end =
         mode === 'planned'
           ? n.plannedEnd
-          : n.actualEnd ??
-            (n.status === 'doing' ? dayjs().format('YYYY-MM-DD') : n.plannedEnd ?? n.actualStart)
+          : (n.actualEnd ??
+            (n.status === 'doing' ? dayjs().format('YYYY-MM-DD') : (n.plannedEnd ?? n.actualStart)))
       return { node: n, start, end }
     })
   }, [nodes, mode, draft])
@@ -320,7 +320,7 @@ export function Timeline({ project }: Props) {
       </div>
 
       <div className="card" style={{ marginTop: 12 }}>
-        <div className="card-title">图例</div>
+        <h2 className="card-title">图例</h2>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 13 }}>
           {(['done', 'doing', 'todo', 'skipped'] as const).map((s) => (
             <span key={s} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -333,7 +333,13 @@ export function Timeline({ project }: Props) {
                   display: 'inline-block',
                 }}
               />
-              {s === 'done' ? '已完成' : s === 'doing' ? '进行中' : s === 'todo' ? '未开始' : '已跳过'}
+              {s === 'done'
+                ? '已完成'
+                : s === 'doing'
+                  ? '进行中'
+                  : s === 'todo'
+                    ? '未开始'
+                    : '已跳过'}
             </span>
           ))}
         </div>

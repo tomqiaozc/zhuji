@@ -39,9 +39,7 @@ async function bumpRepeat(r: Reminder): Promise<void> {
     return
   }
   const next =
-    r.repeated === 'daily'
-      ? dayjs(r.triggerAt).add(1, 'day')
-      : dayjs(r.triggerAt).add(1, 'week')
+    r.repeated === 'daily' ? dayjs(r.triggerAt).add(1, 'day') : dayjs(r.triggerAt).add(1, 'week')
   await updateReminder(r.id, { triggerAt: next.toISOString() })
 }
 

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { loadDemoProject } from '@/data/seed'
 import type { ProjectType } from '@/types'
+import { Modal } from './ui/Modal'
 
 interface Props {
   allowCancel: boolean
@@ -43,108 +44,110 @@ export function ProjectCreateModal({ allowCancel, onSubmit, onDemoLoaded, onClos
   }
 
   return (
-    <div className="modal-bg" onClick={(e) => allowCancel && e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true">
-        <div className="drawer-header">
-          <div className="drawer-title">新建项目</div>
-          {allowCancel && (
-            <button className="icon-btn" onClick={onClose} aria-label="关闭">
-              ✕
-            </button>
-          )}
-        </div>
-        <div className="form-row">
-          <label>项目名称 *</label>
-          <input
-            type="text"
-            data-testid="project-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="如：朝阳保利和光屿湖"
-            autoFocus
-          />
-        </div>
-        <div className="form-row">
-          <label>地址</label>
-          <input
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="北京市朝阳区…"
-          />
-        </div>
-        <div className="form-grid">
-          <div className="form-row">
-            <label>面积（㎡）</label>
-            <input
-              type="number"
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              placeholder="89"
-            />
-          </div>
-          <div className="form-row">
-            <label>装修类型</label>
-            <select value={type} onChange={(e) => setType(e.target.value as ProjectType)}>
-              <option value="毛坯">毛坯</option>
-              <option value="老房改造">老房改造</option>
-              <option value="局部翻新">局部翻新</option>
-            </select>
-          </div>
-        </div>
-        <div className="form-grid">
-          <div className="form-row">
-            <label>开工日期</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-          </div>
-          <div className="form-row">
-            <label>预计完工</label>
-            <input
-              type="date"
-              value={expectedEndDate}
-              onChange={(e) => setExpectedEndDate(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="drawer-actions">
-          {allowCancel && (
-            <button className="btn" onClick={onClose}>
-              取消
-            </button>
-          )}
-          {onDemoLoaded && (
-            <button
-              className="btn"
-              data-testid="btn-load-demo-modal"
-              onClick={async () => {
-                if (busy) return
-                setBusy(true)
-                try {
-                  const r = await loadDemoProject()
-                  onDemoLoaded(r.project.id)
-                } finally {
-                  setBusy(false)
-                }
-              }}
-              disabled={busy}
-            >
-              Load Demo Project
-            </button>
-          )}
-          <button
-            className="btn btn-primary"
-            data-testid="project-create-submit"
-            onClick={submit}
-            disabled={!name.trim() || busy}
-          >
-            {busy ? '创建中…' : '创建项目'}
+    <Modal
+      onClose={onClose}
+      labelledBy="project-create-title"
+      closeOnBackdrop={allowCancel}
+      closeOnEsc={allowCancel}
+    >
+      <div className="drawer-header">
+        <h2 id="project-create-title" className="drawer-title">
+          新建项目
+        </h2>
+        {allowCancel && (
+          <button className="icon-btn" onClick={onClose} aria-label="关闭">
+            ✕
           </button>
+        )}
+      </div>
+      <div className="form-row">
+        <label>项目名称 *</label>
+        <input
+          type="text"
+          data-testid="project-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="如：朝阳保利和光屿湖"
+          data-autofocus
+          autoFocus
+        />
+      </div>
+      <div className="form-row">
+        <label>地址</label>
+        <input
+          type="text"
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="北京市朝阳区…"
+        />
+      </div>
+      <div className="form-grid">
+        <div className="form-row">
+          <label>面积（㎡）</label>
+          <input
+            type="number"
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            placeholder="89"
+          />
+        </div>
+        <div className="form-row">
+          <label>装修类型</label>
+          <select value={type} onChange={(e) => setType(e.target.value as ProjectType)}>
+            <option value="毛坯">毛坯</option>
+            <option value="老房改造">老房改造</option>
+            <option value="局部翻新">局部翻新</option>
+          </select>
         </div>
       </div>
-    </div>
+      <div className="form-grid">
+        <div className="form-row">
+          <label>开工日期</label>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        </div>
+        <div className="form-row">
+          <label>预计完工</label>
+          <input
+            type="date"
+            value={expectedEndDate}
+            onChange={(e) => setExpectedEndDate(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="drawer-actions">
+        {allowCancel && (
+          <button className="btn" onClick={onClose}>
+            取消
+          </button>
+        )}
+        {onDemoLoaded && (
+          <button
+            className="btn"
+            data-testid="btn-load-demo-modal"
+            onClick={async () => {
+              if (busy) return
+              setBusy(true)
+              try {
+                const r = await loadDemoProject()
+                onDemoLoaded(r.project.id)
+              } finally {
+                setBusy(false)
+              }
+            }}
+            disabled={busy}
+          >
+            Load Demo Project
+          </button>
+        )}
+        <button
+          className="btn btn-primary"
+          data-testid="project-create-submit"
+          onClick={submit}
+          disabled={!name.trim() || busy}
+        >
+          {busy ? '创建中…' : '创建项目'}
+        </button>
+      </div>
+    </Modal>
   )
 }

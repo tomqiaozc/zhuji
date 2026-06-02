@@ -116,10 +116,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
   }, [purchases])
 
   const recent = useMemo(
-    () =>
-      [...purchases]
-        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-        .slice(0, 5),
+    () => [...purchases].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 5),
     [purchases],
   )
 
@@ -200,7 +197,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
 
       <div className="dash-grid">
         <div className="col-3 card">
-          <div className="card-title">装修进度</div>
+          <h2 className="card-title">装修进度</h2>
           <div className="progress-ring">
             <div
               className="ring"
@@ -220,7 +217,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
         </div>
 
         <div className="col-3 card">
-          <div className="card-title">累计支出</div>
+          <h2 className="card-title">累计支出</h2>
           <div className="metric">
             <div className="num">{fmtMoney(totalSpent)}</div>
             <div className="sub">{purchases.length} 笔采购</div>
@@ -228,7 +225,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
         </div>
 
         <div className="col-3 card">
-          <div className="card-title">本周采购</div>
+          <h2 className="card-title">本周采购</h2>
           <div className="metric">
             <div className="num">{weekCount} 笔</div>
             <div className="sub">
@@ -244,7 +241,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
         </div>
 
         <div className="col-3 card">
-          <div className="card-title">当前进行中</div>
+          <h2 className="card-title">当前进行中</h2>
           <div className="metric">
             <div className="num" style={{ color: 'var(--primary)' }}>
               {nodes.filter((n) => n.status === 'doing').length}
@@ -260,7 +257,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
         </div>
 
         <div className="col-8 card">
-          <div className="card-title">各阶段花费分布（点击查看明细）</div>
+          <h2 className="card-title">各阶段花费分布（点击查看明细）</h2>
           {stageTotal === 0 ? (
             <div className="empty">还没有采购记录</div>
           ) : (
@@ -323,7 +320,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
         </div>
 
         <div className="col-4 card">
-          <div className="card-title">品类支出</div>
+          <h2 className="card-title">品类支出</h2>
           {categoryData.length === 0 ? (
             <div className="empty">暂无数据</div>
           ) : (
@@ -354,7 +351,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
         </div>
 
         <div className="col-8 card">
-          <div
+          <h2
             className="card-title"
             style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
           >
@@ -377,7 +374,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
                 按月
               </button>
             </div>
-          </div>
+          </h2>
           {trendData.length === 0 ? (
             <div className="empty">暂无趋势数据</div>
           ) : (
@@ -386,7 +383,10 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
                 <BarChart data={trendData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
+                  />
                   <Tooltip
                     formatter={(v, key) => {
                       const n = toMoney(v)
@@ -401,7 +401,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
         </div>
 
         <div className="col-4 card">
-          <div className="card-title">Top 5 高价采购</div>
+          <h2 className="card-title">Top 5 高价采购</h2>
           {topPurchases.length === 0 ? (
             <div className="empty">暂无采购</div>
           ) : (
@@ -470,7 +470,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
         </div>
 
         <div className="col-12 card">
-          <div className="card-title">最近采购</div>
+          <h2 className="card-title">最近采购</h2>
           {recent.length === 0 ? (
             <div className="empty">还没有采购记录，点右上"记一笔"开始</div>
           ) : (

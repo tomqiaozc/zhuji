@@ -9,7 +9,7 @@
   --border-strong: #d4d4d4;
   --text: #1a1a1a;
   --text-soft: #6b7280;
-  --text-mute: #9ca3af;
+  --text-mute: #525a6b;
   --primary: #2563eb;
   --primary-soft: #eff6ff;
   --success: #16a34a;
@@ -33,8 +33,9 @@ body,
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro SC', 'PingFang SC',
-    'Helvetica Neue', Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'SF Pro SC', 'PingFang SC', 'Helvetica Neue', Arial,
+    sans-serif;
   background: var(--bg);
   color: var(--text);
   font-size: 14px;
@@ -293,7 +294,7 @@ textarea {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-soft);
-  margin-bottom: 12px;
+  margin: 0 0 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1035,10 +1036,19 @@ textarea {
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
 }
 
-.menu-item:hover {
+.menu-item:hover,
+.menu-item:focus-visible,
+.menu-item-active {
   background: #f3f4f6;
+  outline: none;
 }
 
 .menu-divider {
@@ -1410,8 +1420,8 @@ textarea {
   justify-content: center;
   padding: 24px;
   background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(37, 99, 235, 0.10), transparent 60%),
-    radial-gradient(900px 500px at 110% 110%, rgba(124, 58, 237, 0.10), transparent 60%),
+    radial-gradient(1200px 600px at 10% -10%, rgba(37, 99, 235, 0.1), transparent 60%),
+    radial-gradient(900px 500px at 110% 110%, rgba(124, 58, 237, 0.1), transparent 60%),
     var(--bg, #fafafa);
 }
 .auth-card {
@@ -1420,7 +1430,7 @@ textarea {
   background: var(--panel, #fff);
   border: 1px solid var(--border, #e4e4e7);
   border-radius: 14px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.10);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
   padding: 28px 26px;
   display: flex;
   flex-direction: column;
@@ -1452,7 +1462,7 @@ textarea {
 }
 .auth-hint {
   font-style: normal;
-  color: var(--text-mute, #9ca3af);
+  color: var(--text-mute, #525a6b);
   font-weight: 400;
 }
 .auth-field input {
@@ -1467,12 +1477,12 @@ textarea {
 .auth-field input:focus {
   outline: none;
   border-color: var(--primary, #2563eb);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.20);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
 }
 .auth-error {
   background: rgba(239, 68, 68, 0.08);
   color: #b91c1c;
-  border: 1px solid rgba(239, 68, 68, 0.30);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 8px;
   padding: 8px 10px;
   font-size: 13px;
@@ -1504,7 +1514,9 @@ textarea {
   padding: 0 4px;
   font-size: 13px;
 }
-.auth-toggle button:hover { text-decoration: underline; }
+.auth-toggle button:hover {
+  text-decoration: underline;
+}
 
 /* ---------- Topbar user menu ---------- */
 .topbar-user {
@@ -1524,4 +1536,7 @@ textarea {
   font-size: 12px;
   cursor: pointer;
 }
-.topbar-user button:hover { color: var(--text, #111827); border-color: var(--border-strong, #d4d4d8); }
+.topbar-user button:hover {
+  color: var(--text, #111827);
+  border-color: var(--border-strong, #d4d4d8);
+}

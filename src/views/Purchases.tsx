@@ -45,10 +45,7 @@ export function Purchases({ project, onAddPurchase }: Props) {
 
   const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
   const stages = useMemo(() => [...new Set(nodes.map((n) => n.stage))], [nodes])
-  const categories = useMemo(
-    () => [...new Set(purchases.map((p) => p.category))],
-    [purchases],
-  )
+  const categories = useMemo(() => [...new Set(purchases.map((p) => p.category))], [purchases])
 
   const filtered = useMemo(() => {
     return purchases
@@ -59,7 +56,8 @@ export function Purchases({ project, onAddPurchase }: Props) {
         if (categoryFilter !== 'all' && p.category !== categoryFilter) return false
         if (search.trim()) {
           const q = search.toLowerCase()
-          const hay = `${p.name} ${p.brand ?? ''} ${p.channel ?? ''} ${p.spec ?? ''} ${p.remark ?? ''}`.toLowerCase()
+          const hay =
+            `${p.name} ${p.brand ?? ''} ${p.channel ?? ''} ${p.spec ?? ''} ${p.remark ?? ''}`.toLowerCase()
           if (!hay.includes(q)) return false
         }
         return true
@@ -257,11 +255,7 @@ export function Purchases({ project, onAddPurchase }: Props) {
       </div>
 
       {editing && (
-        <PurchaseDrawer
-          project={project}
-          editing={editing}
-          onClose={() => setEditing(null)}
-        />
+        <PurchaseDrawer project={project} editing={editing} onClose={() => setEditing(null)} />
       )}
     </section>
   )

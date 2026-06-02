@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useFocusTrap } from './ui/useFocusTrap'
 
 export interface LightboxImage {
   id: string
@@ -32,6 +33,13 @@ export function ImageLightbox({ images, index, onClose, onIndexChange }: Props) 
   const containerRef = useRef<HTMLDivElement>(null)
 
   const cur = images[index]
+
+  // Tab is trapped inside the lightbox + focus is restored to the
+  // opener on unmount. We deliberately do NOT pass `onEscape` —
+  // Esc / ArrowLeft/Right / +/-/0 are handled by the bespoke window
+  // keydown listener below so the existing zoom and pan shortcuts
+  // stay live.
+  useFocusTrap(containerRef, { onEscape: undefined })
 
   const reset = () => {
     setZoom(1)
@@ -139,6 +147,10 @@ export function ImageLightbox({ images, index, onClose, onIndexChange }: Props) 
       ref={containerRef}
       className="lightbox"
       data-testid="image-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label={cur.caption ?? '图片预览'}
+      tabIndex={-1}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

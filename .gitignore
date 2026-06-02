@@ -18,6 +18,7 @@ backend/.pytest_cache
 backend/.ruff_cache
 backend/.coverage
 backend/htmlcov
+backend/uv.lock
 __pycache__
 *.pyc
 *.egg-info
