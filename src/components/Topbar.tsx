@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useApp } from '@/store/app'
 import { useAuth } from '@/store/auth'
 import { clearLocalCache } from '@/lib/repository'
@@ -25,9 +25,32 @@ export function Topbar({
   onOpenSearch,
 }: Props) {
   const [menu, setMenu] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const user = useAuth((s) => s.user)
   const clearSession = useAuth((s) => s.clearSession)
   const resetApp = useApp((s) => s.reset)
+
+  // Close the project menu when the user clicks outside or presses Esc.
+  // `onMouseLeave` (the prior approach) never fires on touch devices, so
+  // the menu would stay stuck open on mobile.
+  useEffect(() => {
+    if (!menu) return
+    function onPointerDown(e: PointerEvent) {
+      const root = menuRef.current
+      if (!root) return
+      if (e.target instanceof Node && root.contains(e.target)) return
+      setMenu(false)
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setMenu(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menu])
 
   async function handleLogout() {
     await clearLocalCache()
@@ -51,8 +74,14 @@ export function Topbar({
         <span className="logo-mark">筑</span>
         <span>筑迹 Zhuji</span>
       </div>
-      <div style={{ position: 'relative' }}>
-        <button className="project-switcher" onClick={() => setMenu((v) => !v)} aria-label="切换项目">
+      <div ref={menuRef} style={{ position: 'relative' }}>
+        <button
+          className="project-switcher"
+          onClick={() => setMenu((v) => !v)}
+          aria-label="切换项目"
+          aria-haspopup="menu"
+          aria-expanded={menu}
+        >
           <span>🏠</span>
           <span>
             {project
@@ -62,7 +91,7 @@ export function Topbar({
           <span className="arrow">▾</span>
         </button>
         {menu && (
-          <div className="menu" role="menu" onMouseLeave={() => setMenu(false)}>
+          <div className="menu" role="menu">
             {projects.map((p) => (
               <div
                 key={p.id}

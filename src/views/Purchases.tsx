@@ -7,6 +7,7 @@ import { fmtMoney } from '@/lib/format'
 import { useApp } from '@/store/app'
 import type { Project, Purchase } from '@/types'
 import { PurchaseDrawer } from '@/components/PurchaseDrawer'
+import { confirmDialog } from '@/lib/dialog'
 
 interface Props {
   project: Project
@@ -63,7 +64,7 @@ export function Purchases({ project, onAddPurchase }: Props) {
         }
         return true
       })
-      .sort((a, b) => (a.purchaseDate < b.purchaseDate ? 1 : -1))
+      .sort((a, b) => ((a.purchaseDate ?? '') < (b.purchaseDate ?? '') ? 1 : -1))
   }, [purchases, nodeFilter, stageFilter, categoryFilter, search, nodeMap])
 
   const total = filtered.reduce((s, p) => s + p.totalPrice, 0)
@@ -73,7 +74,7 @@ export function Purchases({ project, onAddPurchase }: Props) {
     const rows = filtered.map((p) => {
       const node = nodeMap.get(p.nodeId)
       return {
-        日期: p.purchaseDate,
+        日期: p.purchaseDate ?? '',
         阶段: node?.stage ?? '',
         节点: node?.name ?? '',
         商品: p.name,
@@ -218,7 +219,7 @@ export function Purchases({ project, onAddPurchase }: Props) {
                       <span className="tag">{p.category}</span>
                     </td>
                     <td>{p.channel ?? '—'}</td>
-                    <td>{dayjs(p.purchaseDate).format('M/D')}</td>
+                    <td>{p.purchaseDate ? dayjs(p.purchaseDate).format('M/D') : '—'}</td>
                     <td className="price-cell">{fmtMoney(p.totalPrice)}</td>
                     <td style={{ whiteSpace: 'nowrap' }}>
                       <button
@@ -234,7 +235,14 @@ export function Purchases({ project, onAddPurchase }: Props) {
                         title="删除"
                         aria-label="删除"
                         onClick={() => {
-                          if (confirm('删除这笔采购？')) void deletePurchase(p.id)
+                          void (async () => {
+                            const ok = await confirmDialog({
+                              message: '删除这笔采购？',
+                              confirmLabel: '删除',
+                              danger: true,
+                            })
+                            if (ok) await deletePurchase(p.id)
+                          })()
                         }}
                       >
                         🗑️

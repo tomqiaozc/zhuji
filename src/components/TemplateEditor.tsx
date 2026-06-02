@@ -6,6 +6,7 @@ import {
   resetTemplates,
   saveCustomTemplates,
 } from '@/data/userTemplates'
+import { confirmDialog } from '@/lib/dialog'
 import type { StageTemplate, StageTemplateNode } from '@/types'
 
 interface Props {
@@ -57,9 +58,15 @@ export function TemplateEditor({ onClose }: Props) {
     setActiveNode(0)
   }
 
-  function handleRemoveStage() {
+  async function handleRemoveStage() {
     if (!stage) return
-    if (!confirm(`删除阶段「${stage.stage}」？其下所有节点也会一起删除。仅影响新建项目，已有项目不受影响。`)) return
+    const ok = await confirmDialog({
+      title: '删除阶段',
+      message: `删除阶段「${stage.stage}」？其下所有节点也会一起删除。\n仅影响新建项目，已有项目不受影响。`,
+      confirmLabel: '删除',
+      danger: true,
+    })
+    if (!ok) return
     mutate((d) => {
       d.splice(activeStage, 1)
     })
@@ -95,9 +102,15 @@ export function TemplateEditor({ onClose }: Props) {
     setActiveNode(stage.nodes.length)
   }
 
-  function handleRemoveNode() {
+  async function handleRemoveNode() {
     if (!stage || !node) return
-    if (!confirm(`删除节点「${node.name}」？仅影响新建项目。`)) return
+    const ok = await confirmDialog({
+      title: '删除节点',
+      message: `删除节点「${node.name}」？仅影响新建项目。`,
+      confirmLabel: '删除',
+      danger: true,
+    })
+    if (!ok) return
     mutate((d) => {
       d[activeStage].nodes.splice(activeNode, 1)
     })
@@ -139,8 +152,14 @@ export function TemplateEditor({ onClose }: Props) {
     setTimeout(() => setSavedFlash(false), 1500)
   }
 
-  function handleReset() {
-    if (!confirm('恢复出厂模板？你对模板的所有修改都会丢失（已有项目的节点不会被改动）。')) return
+  async function handleReset() {
+    const ok = await confirmDialog({
+      title: '恢复出厂模板',
+      message: '恢复出厂模板？你对模板的所有修改都会丢失（已有项目的节点不会被改动）。',
+      confirmLabel: '恢复',
+      danger: true,
+    })
+    if (!ok) return
     resetTemplates()
     const def = getDefaultTemplates()
     setTemplates(def)

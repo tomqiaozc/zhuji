@@ -125,7 +125,24 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
 
   return (
     <div className="drawer-bg" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="drawer" role="dialog" aria-modal="true">
+      <div
+        className="drawer"
+        role="dialog"
+        aria-modal="true"
+        onKeyDown={(e) => {
+          // Enter shortcut for "save". Limit to <input> targets only so:
+          // - clicking 保存 / 取消 with the keyboard doesn't double-fire
+          //   (button's own Enter handler is the click); we'd otherwise
+          //   call save() twice and risk a duplicate createPurchase.
+          // - <textarea> / <select> keep their native Enter semantics.
+          // Also skip while the IME is composing.
+          if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+          const t = e.target as HTMLElement
+          if (t.tagName !== 'INPUT') return
+          e.preventDefault()
+          if (!busy) void save()
+        }}
+      >
         <div className="drawer-header">
           <div className="drawer-title">{editing ? '编辑采购' : '记一笔采购'}</div>
           <button className="icon-btn" onClick={onClose} aria-label="关闭">

@@ -50,6 +50,17 @@ export function ReminderPanel({ projectId, onClose }: Props) {
 
   async function add() {
     if (!projectId || !title.trim() || !triggerAt) return
+    // First time you save a reminder, ask for notification permission.
+    // Browsers reject prompts that aren't tied to a clear user gesture,
+    // and "creating a reminder" is the most natural moment to ask.
+    if ('Notification' in window && Notification.permission === 'default') {
+      try {
+        const p = await ensureNotificationPermission()
+        setPermission(p)
+      } catch {
+        // Ignore — saving the reminder is still the primary action.
+      }
+    }
     await createReminder(projectId, {
       nodeId: nodeId || undefined,
       title: title.trim(),

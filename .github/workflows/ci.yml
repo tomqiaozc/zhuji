@@ -53,5 +53,13 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: npm audit (high+critical only, runtime deps)
+        # Non-blocking signal: print every advisory at any severity, then
+        # fail the job ONLY when something high/critical sneaks into
+        # production deps. Dev advisories are noisy and rarely shipped.
+        run: |
+          npm audit --omit=dev || true
+          npm audit --omit=dev --audit-level=high
+
       - name: TypeScript build
         run: npm run build

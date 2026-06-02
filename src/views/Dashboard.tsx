@@ -121,6 +121,7 @@ export function Dashboard({ project, onAddPurchase }: Props) {
         buckets.set(k, { amount: 0, count: 0 })
       }
       for (const p of purchases) {
+        if (!p.purchaseDate) continue
         const k = dayjs(p.purchaseDate).startOf('week').format('MM/DD')
         const b = buckets.get(k)
         if (b) {
@@ -134,6 +135,7 @@ export function Dashboard({ project, onAddPurchase }: Props) {
         buckets.set(k, { amount: 0, count: 0 })
       }
       for (const p of purchases) {
+        if (!p.purchaseDate) continue
         const k = dayjs(p.purchaseDate).format('YYYY/MM')
         const b = buckets.get(k)
         if (b) {
@@ -458,7 +460,7 @@ export function Dashboard({ project, onAddPurchase }: Props) {
                     <div className="meta">
                       <div className="t">{p.name}</div>
                       <div className="s">
-                        {node?.stage ?? '—'} · {dayjs(p.purchaseDate).format('M月D日')}
+                        {node?.stage ?? '—'} · {p.purchaseDate ? dayjs(p.purchaseDate).format('M月D日') : '日期未填'}
                         {p.channel ? ` · ${p.channel}` : ''}
                       </div>
                     </div>

@@ -247,7 +247,7 @@ export function purchaseFromWire(p: PurchaseOut): Purchase {
     unitPrice: num(p.unit_price),
     quantity: num(p.quantity),
     totalPrice: num(p.total_price),
-    purchaseDate: p.purchase_date ?? '',
+    purchaseDate: p.purchase_date ?? undefined,
     purchaseUrl: p.purchase_url ?? undefined,
     imageIds: [], // images are server-side blob URLs in M5+; legacy local IDs no longer apply
     remark: p.remark ?? undefined,

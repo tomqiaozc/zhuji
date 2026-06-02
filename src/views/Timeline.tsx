@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
 import { updateNode } from '@/lib/repository'
+import { pushToast } from '@/lib/toast'
 import type { DecorNode, Project } from '@/types'
 
 interface Props {
@@ -163,8 +164,33 @@ export function Timeline({ project }: Props) {
       s.field === 'planned'
         ? { plannedStart: d.start, plannedEnd: d.end }
         : { actualStart: d.start, actualEnd: d.end }
-    await updateNode(s.nodeId, patch)
+    try {
+      await updateNode(s.nodeId, patch)
+      const label = s.field === 'planned' ? '计划' : '实际'
+      pushToast(`${label}日期已更新：${d.start} → ${d.end}`, 'success', 2400)
+    } catch (err) {
+      pushToast(`保存失败：${(err as Error)?.message ?? ''}`, 'error', 6000)
+    }
   }
+
+  // ESC cancels an in-progress drag without committing.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      const s = dragRef.current
+      if (!s) return
+      dragRef.current = null
+      setDraft((prev) => {
+        if (!(s.nodeId in prev)) return prev
+        const next = { ...prev }
+        delete next[s.nodeId]
+        return next
+      })
+      pushToast('已取消拖拽', 'info', 1800)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <section className="view">

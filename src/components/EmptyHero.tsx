@@ -23,7 +23,7 @@ export function EmptyHero({ onCreateProject, onLoadDemo, demoBusy }: Props) {
         <div style={{ fontSize: 48, marginBottom: 8 }}>🏠</div>
         <h2 style={{ margin: '0 0 8px', fontSize: 22 }}>欢迎使用 筑迹</h2>
         <p style={{ color: 'var(--text-soft)', fontSize: 14, lineHeight: 1.6, margin: '0 0 24px' }}>
-          单人业主的装修管家：节点进度、采购流水、阶段花费、提醒、PDF 档案，全部本地存储。
+          单人业主的装修管家：节点进度、采购流水、阶段花费、提醒、PDF 档案，一应俱全。
           <br />
           从一个新项目开始，或加载一个示例项目体验。
         </p>
@@ -41,7 +41,7 @@ export function EmptyHero({ onCreateProject, onLoadDemo, demoBusy }: Props) {
           </button>
         </div>
         <div style={{ marginTop: 24, fontSize: 12, color: 'var(--text-mute)' }}>
-          所有数据保存在你的浏览器本地，不上传任何服务器
+          数据安全同步到云端，可在多设备访问
         </div>
       </div>
     </div>
