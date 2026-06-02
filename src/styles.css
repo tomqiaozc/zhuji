@@ -1139,10 +1139,11 @@ body,
     padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
   .project-switcher {
-    /* Stay inside the row even when the project name is long. With 44px
-       icon-btns, hamburger, and a 退出 button, every horizontal pixel
-       counts on a 375px iPhone SE. */
-    max-width: clamp(110px, 32vw, 200px);
+    /* Stay inside the row even when the project name is long. On iPhone
+       SE 375px the row is hamburger 44 + logo-mark 22 + switcher + actions
+       (3 × icon-btn 44 + 退出 46) + gaps — leaving ~104px for the switcher.
+       Cap at 30vw to keep .topbar-actions right edge ≤ viewport width. */
+    max-width: clamp(104px, 30vw, 200px);
     min-width: 0;
     flex: 1 1 auto;
   }
@@ -1215,10 +1216,18 @@ body,
     padding-bottom: 10px;
   }
   /* Make the entire Dashboard quick-filter chip row taller — these were
-     28px tall, which is the worst offender for thumb-tap accuracy. */
+     28px tall, which is the worst offender for thumb-tap accuracy.
+     The segments themselves are decorative on mobile (their widths are
+     proportional to spend, so a low-spend category is only a few px wide
+     and unusable as a tap target); the legend buttons below handle the
+     filter intent. */
   .stage-bar {
     height: 44px;
     line-height: 44px;
+  }
+  .stage-legend button {
+    min-height: 44px;
+    padding: 10px 10px;
   }
   /* Project switcher is a real menu trigger, treat it as a tap target. */
   .project-switcher {
