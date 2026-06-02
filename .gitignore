@@ -26,3 +26,7 @@ __pycache__
 # Bicep build artifacts
 infra/main.json
 infra/modules/*.json
+
+# Mobile audit run artifacts (the e2e spec lives in e2e/; this dir is its output)
+.mobile-audit
+backend/*.db
