@@ -199,6 +199,7 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
             <label>单价 ¥ *</label>
             <input
               type="number"
+              inputMode="decimal"
               data-testid="purchase-unit-price"
               value={unitPrice}
               onChange={(e) => setUnitPrice(e.target.value)}
@@ -210,6 +211,7 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
             <label>数量 *</label>
             <input
               type="number"
+              inputMode="decimal"
               data-testid="purchase-quantity"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}

@@ -277,8 +277,11 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
                       cursor: 'pointer',
                       padding: 0,
                       fontSize: 12,
-                      lineHeight: '28px',
-                      height: 28,
+                      lineHeight: 'inherit',
+                      // Height comes from the parent .stage-bar so we can
+                      // bump segments to 44px on mobile via the media query
+                      // without rewriting the inline style here.
+                      height: '100%',
                       overflow: 'hidden',
                       whiteSpace: 'nowrap',
                     }}
