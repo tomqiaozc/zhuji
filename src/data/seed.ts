@@ -9,7 +9,11 @@
  * place keeps the Settings panel from crashing.
  */
 
-import { clearLocalCache, loadDemoProject as repoLoadDemo, type LoadDemoResult } from '@/lib/repository'
+import {
+  clearLocalCache,
+  loadDemoProject as repoLoadDemo,
+  type LoadDemoResult,
+} from '@/lib/repository'
 
 export type DemoSeedResult = LoadDemoResult
 

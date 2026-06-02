@@ -44,12 +44,12 @@ export function Timeline({ project }: Props) {
     return nodes.map((n) => {
       const d = draft[n.id]
       if (d) return { node: n, start: d.start, end: d.end }
-      const start = mode === 'planned' ? n.plannedStart : n.actualStart ?? n.plannedStart
+      const start = mode === 'planned' ? n.plannedStart : (n.actualStart ?? n.plannedStart)
       const end =
         mode === 'planned'
           ? n.plannedEnd
-          : n.actualEnd ??
-            (n.status === 'doing' ? dayjs().format('YYYY-MM-DD') : n.plannedEnd ?? n.actualStart)
+          : (n.actualEnd ??
+            (n.status === 'doing' ? dayjs().format('YYYY-MM-DD') : (n.plannedEnd ?? n.actualStart)))
       return { node: n, start, end }
     })
   }, [nodes, mode, draft])
@@ -333,7 +333,13 @@ export function Timeline({ project }: Props) {
                   display: 'inline-block',
                 }}
               />
-              {s === 'done' ? '已完成' : s === 'doing' ? '进行中' : s === 'todo' ? '未开始' : '已跳过'}
+              {s === 'done'
+                ? '已完成'
+                : s === 'doing'
+                  ? '进行中'
+                  : s === 'todo'
+                    ? '未开始'
+                    : '已跳过'}
             </span>
           ))}
         </div>

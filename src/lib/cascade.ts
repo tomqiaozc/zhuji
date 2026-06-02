@@ -4,7 +4,10 @@
  * side-effect inside the repository helpers.
  */
 
-import { deleteNode as repoDeleteNode, deletePurchase as repoDeletePurchase } from '@/lib/repository'
+import {
+  deleteNode as repoDeleteNode,
+  deletePurchase as repoDeletePurchase,
+} from '@/lib/repository'
 
 export async function deletePurchase(purchaseId: string): Promise<void> {
   await repoDeletePurchase(purchaseId)

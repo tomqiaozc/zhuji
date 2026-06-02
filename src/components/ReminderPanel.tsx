@@ -3,11 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
 import { ensureNotificationPermission } from '@/lib/reminders'
-import {
-  createReminder,
-  deleteReminder,
-  updateReminder,
-} from '@/lib/repository'
+import { createReminder, deleteReminder, updateReminder } from '@/lib/repository'
 import type { Reminder } from '@/types'
 import { Modal } from './ui/Modal'
 
@@ -86,7 +82,9 @@ export function ReminderPanel({ projectId, onClose }: Props) {
   return (
     <Modal onClose={onClose} variant="drawer" labelledBy="reminder-panel-title">
       <div className="drawer-header">
-        <h2 id="reminder-panel-title" className="drawer-title">🔔 提醒</h2>
+        <h2 id="reminder-panel-title" className="drawer-title">
+          🔔 提醒
+        </h2>
         <button className="icon-btn" onClick={onClose} aria-label="关闭">
           ✕
         </button>

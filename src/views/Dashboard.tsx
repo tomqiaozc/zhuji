@@ -116,10 +116,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
   }, [purchases])
 
   const recent = useMemo(
-    () =>
-      [...purchases]
-        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-        .slice(0, 5),
+    () => [...purchases].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)).slice(0, 5),
     [purchases],
   )
 
@@ -386,7 +383,10 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
                 <BarChart data={trendData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
+                  />
                   <Tooltip
                     formatter={(v, key) => {
                       const n = toMoney(v)

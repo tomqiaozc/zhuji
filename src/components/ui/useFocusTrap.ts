@@ -30,7 +30,7 @@ function getFocusable(root: HTMLElement): HTMLElement[] {
  * receives focus.
  */
 export function useFocusTrap(
-  containerRef: React.RefObject<HTMLElement>,
+  containerRef: React.RefObject<HTMLElement | null>,
   opts: {
     active?: boolean
     onEscape?: () => void

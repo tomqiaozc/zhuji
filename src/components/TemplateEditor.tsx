@@ -37,10 +37,7 @@ export function TemplateEditor({ onClose }: Props) {
   const node = stage?.nodes[activeNode]
 
   const stageCount = templates.length
-  const totalNodes = useMemo(
-    () => templates.reduce((s, t) => s + t.nodes.length, 0),
-    [templates],
-  )
+  const totalNodes = useMemo(() => templates.reduce((s, t) => s + t.nodes.length, 0), [templates])
 
   function mutate(fn: (draft: StageTemplate[]) => void) {
     const next = cloneTemplates(templates)
@@ -177,181 +174,189 @@ export function TemplateEditor({ onClose }: Props) {
       labelledBy="template-editor-title"
       panelStyle={{ maxWidth: 980, width: '92vw', padding: 0 }}
     >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '16px 18px 8px',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
-          <h2 id="template-editor-title" style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>节点模板管理</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="关闭">
-            ✕
-          </button>
-        </div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px 18px 8px',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <h2 id="template-editor-title" style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+          节点模板管理
+        </h2>
+        <button className="icon-btn" onClick={onClose} aria-label="关闭">
+          ✕
+        </button>
+      </div>
 
-        <div style={{ padding: '8px 18px', fontSize: 12, color: 'var(--text-mute)' }}>
-          {stageCount} 个阶段 · {totalNodes} 个节点 · 模板变更{customized ? '已保存（自定义）' : '为出厂默认'}，仅影响新建项目，已有项目节点不受影响。
-        </div>
+      <div style={{ padding: '8px 18px', fontSize: 12, color: 'var(--text-mute)' }}>
+        {stageCount} 个阶段 · {totalNodes} 个节点 · 模板变更
+        {customized ? '已保存（自定义）' : '为出厂默认'}，仅影响新建项目，已有项目节点不受影响。
+      </div>
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '180px 200px 1fr',
-            gap: 12,
-            padding: 12,
-            minHeight: 460,
-            maxHeight: '72vh',
-          }}
-        >
-          <div className="card" style={{ padding: 8, overflowY: 'auto' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-mute)', padding: '4px 6px' }}>阶段</div>
-            {templates.map((s, i) => (
-              <button
-                key={i}
-                className={`node-link ${i === activeStage ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveStage(i)
-                  setActiveNode(0)
-                }}
-                data-testid={`tpl-stage-${i}`}
-              >
-                <span className="stage-num">{s.icon}</span>
-                <span>{s.stage}</span>
-              </button>
-            ))}
-            <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
-              <button className="btn btn-sm" onClick={handleAddStage} data-testid="tpl-add-stage">
-                + 阶段
-              </button>
-              <button className="btn btn-sm" onClick={handleRenameStage} disabled={!stage}>
-                改名
-              </button>
-              <button className="btn btn-sm" onClick={() => handleMoveStage(-1)} disabled={!stage}>
-                ↑
-              </button>
-              <button className="btn btn-sm" onClick={() => handleMoveStage(1)} disabled={!stage}>
-                ↓
-              </button>
-              <button
-                className="btn btn-sm btn-danger"
-                onClick={handleRemoveStage}
-                disabled={!stage}
-                data-testid="tpl-remove-stage"
-              >
-                删除
-              </button>
-            </div>
-          </div>
-
-          <div className="card" style={{ padding: 8, overflowY: 'auto' }}>
-            <div style={{ fontSize: 12, color: 'var(--text-mute)', padding: '4px 6px' }}>节点</div>
-            {stage?.nodes.map((n, i) => (
-              <button
-                key={i}
-                className={`node-link ${i === activeNode ? 'active' : ''}`}
-                onClick={() => setActiveNode(i)}
-              >
-                <span>{n.name}</span>
-              </button>
-            ))}
-            <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
-              <button className="btn btn-sm" onClick={handleAddNode} disabled={!stage} data-testid="tpl-add-node">
-                + 节点
-              </button>
-              <button className="btn btn-sm" onClick={handleRenameNode} disabled={!node}>
-                改名
-              </button>
-              <button className="btn btn-sm" onClick={() => handleMoveNode(-1)} disabled={!node}>
-                ↑
-              </button>
-              <button className="btn btn-sm" onClick={() => handleMoveNode(1)} disabled={!node}>
-                ↓
-              </button>
-              <button className="btn btn-sm btn-danger" onClick={handleRemoveNode} disabled={!node}>
-                删除
-              </button>
-            </div>
-          </div>
-
-          <div className="card" style={{ padding: 12, overflowY: 'auto' }}>
-            {!node ? (
-              <div className="empty">选择一个节点开始编辑</div>
-            ) : (
-              <>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
-                  {stage?.stage} / {node.name}
-                </div>
-                <div className="form-row">
-                  <label>避坑要点（每行一条）</label>
-                  <textarea
-                    className="notes-area"
-                    style={{ minHeight: 160 }}
-                    value={node.tips.join('\n')}
-                    onChange={(e) =>
-                      patchNode({
-                        tips: e.target.value
-                          .split('\n')
-                          .map((l) => l.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                    data-testid="tpl-node-tips"
-                  />
-                </div>
-                <div className="form-row">
-                  <label>Checklist（每行一条）</label>
-                  <textarea
-                    className="notes-area"
-                    style={{ minHeight: 140 }}
-                    value={node.checklist.join('\n')}
-                    onChange={(e) =>
-                      patchNode({
-                        checklist: e.target.value
-                          .split('\n')
-                          .map((l) => l.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                    data-testid="tpl-node-checklist"
-                  />
-                </div>
-              </>
-            )}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '180px 200px 1fr',
+          gap: 12,
+          padding: 12,
+          minHeight: 460,
+          maxHeight: '72vh',
+        }}
+      >
+        <div className="card" style={{ padding: 8, overflowY: 'auto' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-mute)', padding: '4px 6px' }}>阶段</div>
+          {templates.map((s, i) => (
+            <button
+              key={i}
+              className={`node-link ${i === activeStage ? 'active' : ''}`}
+              onClick={() => {
+                setActiveStage(i)
+                setActiveNode(0)
+              }}
+              data-testid={`tpl-stage-${i}`}
+            >
+              <span className="stage-num">{s.icon}</span>
+              <span>{s.stage}</span>
+            </button>
+          ))}
+          <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
+            <button className="btn btn-sm" onClick={handleAddStage} data-testid="tpl-add-stage">
+              + 阶段
+            </button>
+            <button className="btn btn-sm" onClick={handleRenameStage} disabled={!stage}>
+              改名
+            </button>
+            <button className="btn btn-sm" onClick={() => handleMoveStage(-1)} disabled={!stage}>
+              ↑
+            </button>
+            <button className="btn btn-sm" onClick={() => handleMoveStage(1)} disabled={!stage}>
+              ↓
+            </button>
+            <button
+              className="btn btn-sm btn-danger"
+              onClick={handleRemoveStage}
+              disabled={!stage}
+              data-testid="tpl-remove-stage"
+            >
+              删除
+            </button>
           </div>
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-            justifyContent: 'flex-end',
-            padding: 12,
-            alignItems: 'center',
-            borderTop: '1px solid var(--border)',
-          }}
-        >
-          {savedFlash && <span style={{ color: 'var(--success)', fontSize: 13 }}>✓ 已保存</span>}
-          {dirty && !savedFlash && (
-            <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>有未保存修改</span>
+        <div className="card" style={{ padding: 8, overflowY: 'auto' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-mute)', padding: '4px 6px' }}>节点</div>
+          {stage?.nodes.map((n, i) => (
+            <button
+              key={i}
+              className={`node-link ${i === activeNode ? 'active' : ''}`}
+              onClick={() => setActiveNode(i)}
+            >
+              <span>{n.name}</span>
+            </button>
+          ))}
+          <div style={{ display: 'flex', gap: 4, marginTop: 8, flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-sm"
+              onClick={handleAddNode}
+              disabled={!stage}
+              data-testid="tpl-add-node"
+            >
+              + 节点
+            </button>
+            <button className="btn btn-sm" onClick={handleRenameNode} disabled={!node}>
+              改名
+            </button>
+            <button className="btn btn-sm" onClick={() => handleMoveNode(-1)} disabled={!node}>
+              ↑
+            </button>
+            <button className="btn btn-sm" onClick={() => handleMoveNode(1)} disabled={!node}>
+              ↓
+            </button>
+            <button className="btn btn-sm btn-danger" onClick={handleRemoveNode} disabled={!node}>
+              删除
+            </button>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: 12, overflowY: 'auto' }}>
+          {!node ? (
+            <div className="empty">选择一个节点开始编辑</div>
+          ) : (
+            <>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>
+                {stage?.stage} / {node.name}
+              </div>
+              <div className="form-row">
+                <label>避坑要点（每行一条）</label>
+                <textarea
+                  className="notes-area"
+                  style={{ minHeight: 160 }}
+                  value={node.tips.join('\n')}
+                  onChange={(e) =>
+                    patchNode({
+                      tips: e.target.value
+                        .split('\n')
+                        .map((l) => l.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                  data-testid="tpl-node-tips"
+                />
+              </div>
+              <div className="form-row">
+                <label>Checklist（每行一条）</label>
+                <textarea
+                  className="notes-area"
+                  style={{ minHeight: 140 }}
+                  value={node.checklist.join('\n')}
+                  onChange={(e) =>
+                    patchNode({
+                      checklist: e.target.value
+                        .split('\n')
+                        .map((l) => l.trim())
+                        .filter(Boolean),
+                    })
+                  }
+                  data-testid="tpl-node-checklist"
+                />
+              </div>
+            </>
           )}
-          <button className="btn" onClick={handleReset} data-testid="tpl-reset">
-            恢复出厂模板
-          </button>
-          <button className="btn" onClick={onClose}>
-            关闭
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={handleSave}
-            disabled={!dirty}
-            data-testid="tpl-save"
-          >
-            保存模板
-          </button>
         </div>
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          justifyContent: 'flex-end',
+          padding: 12,
+          alignItems: 'center',
+          borderTop: '1px solid var(--border)',
+        }}
+      >
+        {savedFlash && <span style={{ color: 'var(--success)', fontSize: 13 }}>✓ 已保存</span>}
+        {dirty && !savedFlash && (
+          <span style={{ fontSize: 13, color: 'var(--text-mute)' }}>有未保存修改</span>
+        )}
+        <button className="btn" onClick={handleReset} data-testid="tpl-reset">
+          恢复出厂模板
+        </button>
+        <button className="btn" onClick={onClose}>
+          关闭
+        </button>
+        <button
+          className="btn btn-primary"
+          onClick={handleSave}
+          disabled={!dirty}
+          data-testid="tpl-save"
+        >
+          保存模板
+        </button>
+      </div>
     </Modal>
   )
 }

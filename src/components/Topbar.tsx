@@ -168,19 +168,14 @@ export function Topbar({
         >
           <span aria-hidden="true">🏠</span>
           <span>
-            {project
-              ? project.name + (project.area ? ` · ${project.area}㎡` : '')
-              : '新建项目'}
+            {project ? project.name + (project.area ? ` · ${project.area}㎡` : '') : '新建项目'}
           </span>
-          <span className="arrow" aria-hidden="true">▾</span>
+          <span className="arrow" aria-hidden="true">
+            ▾
+          </span>
         </button>
         {menu && (
-          <div
-            ref={menuRef}
-            className="menu"
-            role="menu"
-            onKeyDown={onMenuKey}
-          >
+          <div ref={menuRef} className="menu" role="menu" onKeyDown={onMenuKey}>
             {projects.map((p, i) => (
               <button
                 key={p.id}
@@ -220,20 +215,10 @@ export function Topbar({
         )}
       </div>
       <div className="topbar-actions">
-        <button
-          className="icon-btn"
-          title="搜索 (⌘K)"
-          aria-label="搜索"
-          onClick={onOpenSearch}
-        >
+        <button className="icon-btn" title="搜索 (⌘K)" aria-label="搜索" onClick={onOpenSearch}>
           🔍
         </button>
-        <button
-          className="icon-btn"
-          title="提醒"
-          aria-label="提醒"
-          onClick={onOpenReminders}
-        >
+        <button className="icon-btn" title="提醒" aria-label="提醒" onClick={onOpenReminders}>
           🔔
         </button>
         {user && (

@@ -224,9 +224,7 @@ export function nodeFromWire(n: NodeOut, checklist: ChecklistItem[] = []): Decor
   }
 }
 
-export function nodeToWire(
-  n: Partial<DecorNode> & Pick<DecorNode, 'stage' | 'name'>,
-): NodeIn {
+export function nodeToWire(n: Partial<DecorNode> & Pick<DecorNode, 'stage' | 'name'>): NodeIn {
   return {
     stage: n.stage,
     name: n.name,

@@ -133,12 +133,7 @@ export function AuthPage({ onAuthed }: Props) {
           </div>
         )}
 
-        <button
-          data-testid="auth-submit"
-          type="submit"
-          className="auth-submit"
-          disabled={busy}
-        >
+        <button data-testid="auth-submit" type="submit" className="auth-submit" disabled={busy}>
           {busy ? '请稍候…' : mode === 'login' ? '登录' : '注册并登录'}
         </button>
 

@@ -40,8 +40,7 @@ export const useApp = create<AppState>()(
       setView: (v) => set({ view: v }),
       setActiveNode: (id) => set({ activeNodeId: id }),
       setPurchaseStageFilter: (s) => set({ purchaseStageFilter: s }),
-      jumpToPurchasesByStage: (stage) =>
-        set({ view: 'purchase', purchaseStageFilter: stage }),
+      jumpToPurchasesByStage: (stage) => set({ view: 'purchase', purchaseStageFilter: stage }),
       reset: () => set({ ...INITIAL }),
     }),
     { name: 'zhuji-app-state' },

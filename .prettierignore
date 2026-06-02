@@ -13,3 +13,15 @@ public
 zhuji-demo.html
 package-lock.json
 *.min.js
+
+# YAML / Dockerfile — Prettier's YAML parser chokes on docker-compose
+# variable expansion like ${JWT_SECRET:?...} and there's no real win in
+# formatting these mechanically. Hand-edited config files only.
+*.yml
+*.yaml
+Dockerfile*
+docker-compose*.yml
+.github
+.dockerignore
+.gitignore
+*.md

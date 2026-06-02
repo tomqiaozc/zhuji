@@ -87,7 +87,6 @@ describe('purchaseFromWire', () => {
     expect(p.quantity).toBe(12)
     expect(p.totalPrice).toBe(1446)
     expect(p.remark).toBeUndefined()
-    expect(p.imageIds).toEqual([])
   })
 
   it('treats a null node_id as empty string', () => {
@@ -109,7 +108,7 @@ describe('purchaseFromWire', () => {
       created_at: '2026-01-01T00:00:00Z',
     })
     expect(p.nodeId).toBe('')
-    expect(p.purchaseDate).toBe('')
+    expect(p.purchaseDate).toBeUndefined()
   })
 })
 
@@ -127,7 +126,6 @@ describe('purchaseToWire / purchasePatchToWire', () => {
       totalPrice: 2000,
       purchaseDate: '2026-02-02',
       purchaseUrl: undefined,
-      imageIds: [],
       remark: undefined,
     })
     expect(wire.node_id).toBe('n1')

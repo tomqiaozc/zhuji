@@ -131,22 +131,18 @@ export async function hydrateProject(projectId: string): Promise<void> {
   const purchases = snap.purchases.map(purchaseFromWire)
   const reminders = snap.reminders.map(reminderFromWire)
 
-  await db.transaction(
-    'rw',
-    [db.projects, db.nodes, db.purchases, db.reminders],
-    async () => {
-      // Keep `projects` in sync too — the snapshot includes the latest
-      // project row, which may have drifted vs. what `hydrateProjectList`
-      // last cached (e.g. another device renamed it).
-      await db.projects.put(project)
-      await db.nodes.where('projectId').equals(projectId).delete()
-      await db.purchases.where('projectId').equals(projectId).delete()
-      await db.reminders.where('projectId').equals(projectId).delete()
-      if (nodes.length) await db.nodes.bulkPut(nodes)
-      if (purchases.length) await db.purchases.bulkPut(purchases)
-      if (reminders.length) await db.reminders.bulkPut(reminders)
-    },
-  )
+  await db.transaction('rw', [db.projects, db.nodes, db.purchases, db.reminders], async () => {
+    // Keep `projects` in sync too — the snapshot includes the latest
+    // project row, which may have drifted vs. what `hydrateProjectList`
+    // last cached (e.g. another device renamed it).
+    await db.projects.put(project)
+    await db.nodes.where('projectId').equals(projectId).delete()
+    await db.purchases.where('projectId').equals(projectId).delete()
+    await db.reminders.where('projectId').equals(projectId).delete()
+    if (nodes.length) await db.nodes.bulkPut(nodes)
+    if (purchases.length) await db.purchases.bulkPut(purchases)
+    if (reminders.length) await db.reminders.bulkPut(reminders)
+  })
 }
 
 /** Pull the project list AND all per-project data. Used after login. */
@@ -317,10 +313,7 @@ export async function createNode(
   )
 }
 
-export async function updateNode(
-  nodeId: string,
-  patch: Partial<DecorNode>,
-): Promise<DecorNode> {
+export async function updateNode(nodeId: string, patch: Partial<DecorNode>): Promise<DecorNode> {
   // Checklist is updated via dedicated helpers below.
   const fieldPatch = nodePatchToWire(patch)
   const existing = await db.nodes.get(nodeId)
@@ -812,9 +805,8 @@ export async function initProjectFromTemplate(
     notes: n.notes,
     checklist: n.checklist,
   }))
-  const out = await api.post<InitResponseOut>(
-    `/api/projects/${projectId}/init-from-template`,
-    { nodes: wire },
-  )
+  const out = await api.post<InitResponseOut>(`/api/projects/${projectId}/init-from-template`, {
+    nodes: wire,
+  })
   return { nodeCount: out.node_count, checklistCount: out.checklist_count }
 }

@@ -51,7 +51,9 @@ export function ProjectCreateModal({ allowCancel, onSubmit, onDemoLoaded, onClos
       closeOnEsc={allowCancel}
     >
       <div className="drawer-header">
-        <h2 id="project-create-title" className="drawer-title">新建项目</h2>
+        <h2 id="project-create-title" className="drawer-title">
+          新建项目
+        </h2>
         {allowCancel && (
           <button className="icon-btn" onClick={onClose} aria-label="关闭">
             ✕
@@ -101,11 +103,7 @@ export function ProjectCreateModal({ allowCancel, onSubmit, onDemoLoaded, onClos
       <div className="form-grid">
         <div className="form-row">
           <label>开工日期</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
         </div>
         <div className="form-row">
           <label>预计完工</label>

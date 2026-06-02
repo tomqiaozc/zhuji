@@ -118,7 +118,9 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
           })}
         </aside>
 
-        {activeNode && <NodePanel node={activeNode} project={project} onAddPurchase={onAddPurchase} />}
+        {activeNode && (
+          <NodePanel node={activeNode} project={project} onAddPurchase={onAddPurchase} />
+        )}
       </div>
       <NodeWorkspaceOnboarding />
     </section>

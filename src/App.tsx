@@ -46,12 +46,7 @@ export default function App() {
     function inEditable(t: EventTarget | null) {
       if (!(t instanceof HTMLElement)) return false
       const tag = t.tagName
-      return (
-        tag === 'INPUT' ||
-        tag === 'TEXTAREA' ||
-        tag === 'SELECT' ||
-        t.isContentEditable
-      )
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable
     }
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
@@ -160,7 +155,11 @@ export default function App() {
             ) : view === 'timeline' ? (
               <Timeline project={current} />
             ) : (
-              <Settings key={current.id} project={current} onNewProject={() => setShowCreate(true)} />
+              <Settings
+                key={current.id}
+                project={current}
+                onNewProject={() => setShowCreate(true)}
+              />
             )}
           </ErrorBoundary>
         </main>

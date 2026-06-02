@@ -28,7 +28,11 @@ export function EmptyHero({ onCreateProject, onLoadDemo, demoBusy }: Props) {
           从一个新项目开始，或加载一个示例项目体验。
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button className="btn btn-primary" onClick={onCreateProject} data-testid="empty-hero-create">
+          <button
+            className="btn btn-primary"
+            onClick={onCreateProject}
+            data-testid="empty-hero-create"
+          >
             + 新建项目
           </button>
           <button

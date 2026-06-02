@@ -161,7 +161,9 @@ export function SearchPalette({ projectId, onClose, onJumpNode }: Props) {
       panelClassName="search-palette"
       labelledBy="search-palette-title"
     >
-      <h2 id="search-palette-title" className="sr-only">全局搜索</h2>
+      <h2 id="search-palette-title" className="sr-only">
+        全局搜索
+      </h2>
       <input
         ref={inputRef}
         className="search-input"
@@ -199,9 +201,7 @@ export function SearchPalette({ projectId, onClose, onJumpNode }: Props) {
           })
         )}
       </div>
-      <div className="search-foot">
-        ↑↓ 切换 · ⏎ 跳转 · Esc 关闭 · 共 {results.length} 条
-      </div>
+      <div className="search-foot">↑↓ 切换 · ⏎ 跳转 · Esc 关闭 · 共 {results.length} 条</div>
     </Modal>
   )
 }

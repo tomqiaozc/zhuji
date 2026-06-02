@@ -133,7 +133,9 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
         }}
       >
         <div className="drawer-header">
-          <h2 id="purchase-drawer-title" className="drawer-title">{editing ? '编辑采购' : '记一笔采购'}</h2>
+          <h2 id="purchase-drawer-title" className="drawer-title">
+            {editing ? '编辑采购' : '记一笔采购'}
+          </h2>
           <button className="icon-btn" onClick={onClose} aria-label="关闭">
             ✕
           </button>
@@ -218,7 +220,12 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
       </div>
       <div className="form-row">
         <label>总价（自动计算）</label>
-        <input type="text" value={fmtMoney(totalPrice)} readOnly style={{ background: '#f9fafb' }} />
+        <input
+          type="text"
+          value={fmtMoney(totalPrice)}
+          readOnly
+          style={{ background: '#f9fafb' }}
+        />
       </div>
       <div className="form-grid">
         <div className="form-row">
