@@ -1782,16 +1782,15 @@ body,
   }
 }
 
+/* Node picker — Modal-driven bottom sheet. The .node-picker-sheet
+   class is the backdrop (Modal's root div); .node-picker-panel is the
+   focus-trapped dialog itself. */
 .node-picker-sheet {
   position: fixed;
   inset: 0;
   z-index: 60;
   display: flex;
   align-items: flex-end;
-}
-.node-picker-backdrop {
-  position: absolute;
-  inset: 0;
   background: rgba(15, 23, 42, 0.5);
 }
 .node-picker-panel {
@@ -1805,6 +1804,9 @@ body,
   display: flex;
   flex-direction: column;
   padding-bottom: env(safe-area-inset-bottom);
+  /* Modal sets tabIndex={-1} for focus management; suppress the focus
+     outline on the panel itself (children handle their own focus). */
+  outline: none;
 }
 .node-picker-header {
   display: flex;

@@ -12,6 +12,7 @@ import {
 import { useApp } from '@/store/app'
 import { fmtMoney } from '@/lib/format'
 import { useIsMobile } from '@/lib/useIsMobile'
+import { Modal } from '@/components/ui/Modal'
 import type { DecorNode, NodeStatus, Project } from '@/types'
 import { RichTextEditor } from '@/components/RichTextEditor'
 import { NodeImagesPanel } from '@/components/NodeImagesPanel'
@@ -93,7 +94,14 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
   const nextNode = activeIdx >= 0 && activeIdx < nodes.length - 1 ? nodes[activeIdx + 1] : null
 
   async function gotoNode(id: string) {
-    if (id === activeNode?.id) return
+    // Closing the sheet on tap is always wanted, even when the tapped
+    // node is already active — otherwise tapping your current node feels
+    // like the sheet is broken. Switch nodes only when the id changes,
+    // and only after the unsaved-tips confirm goes through.
+    if (id === activeNode?.id) {
+      setPickerOpen(false)
+      return
+    }
     if (await confirmLoseTipsDraft()) {
       setActiveNode(id)
       setPickerOpen(false)
@@ -154,6 +162,8 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
                 onClick={() => setPickerOpen(true)}
                 aria-label="切换节点"
                 aria-haspopup="dialog"
+                aria-expanded={pickerOpen}
+                aria-controls="node-picker-sheet"
               >
                 <span className="node-mobile-current-stage">{activeNode?.stage ?? '—'}</span>
                 <span className="node-mobile-current-name">
@@ -170,29 +180,35 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
                 →
               </button>
             </div>
-            {pickerOpen && (
-              <div
-                className="node-picker-sheet"
-                role="dialog"
-                aria-modal="true"
-                aria-label="选择节点"
-              >
-                <div className="node-picker-backdrop" onClick={() => setPickerOpen(false)} />
-                <div className="node-picker-panel">
-                  <div className="node-picker-header">
-                    <span>选择节点（{nodes.length} 个）</span>
-                    <button
-                      className="btn btn-sm"
-                      onClick={() => setPickerOpen(false)}
-                      aria-label="关闭"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="node-picker-body node-tree">{tree}</div>
+            {/* Use the shared Modal primitive so the sheet gets focus
+                trap, Esc-to-close, body scroll lock, and focus restore
+                for free — the hand-rolled version we shipped first
+                missed all four. */}
+            <Modal
+              open={pickerOpen}
+              onClose={() => setPickerOpen(false)}
+              className="node-picker-sheet"
+              panelClassName="node-picker-panel"
+              labelledBy="node-picker-title"
+              testId="node-picker-sheet"
+              zIndex={60}
+            >
+              <div id="node-picker-sheet">
+                <div className="node-picker-header">
+                  <span id="node-picker-title">选择节点（{nodes.length} 个）</span>
+                  <button
+                    type="button"
+                    className="btn btn-sm"
+                    onClick={() => setPickerOpen(false)}
+                    aria-label="关闭"
+                    data-autofocus
+                  >
+                    ✕
+                  </button>
                 </div>
+                <div className="node-picker-body node-tree">{tree}</div>
               </div>
-            )}
+            </Modal>
           </>
         ) : (
           <aside className="node-tree">{tree}</aside>
