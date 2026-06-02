@@ -19,6 +19,20 @@ import { fmtMoney } from '@/lib/format'
 import { useApp } from '@/store/app'
 import type { Project } from '@/types'
 
+// Recharts 3.x widened Tooltip `formatter` to receive
+// `ValueType | undefined` (ValueType itself = number | string | array).
+// We always feed `Tooltip` numeric data, but the type signature requires
+// us to accept the broader shape. Narrow once here so both call sites
+// stay simple. Returns 0 for missing / non-numeric input.
+function toMoney(v: unknown): number {
+  if (typeof v === 'number') return v
+  if (typeof v === 'string') {
+    const n = Number(v)
+    return Number.isFinite(n) ? n : 0
+  }
+  return 0
+}
+
 interface Props {
   project: Project
   onAddPurchase: () => void
@@ -322,7 +336,7 @@ export function Dashboard({ project, onAddPurchase }: Props) {
                     ))}
                   </Pie>
                   <Tooltip
-                    formatter={(v: number, name: string) => [fmtMoney(v), name]}
+                    formatter={(v, name) => [fmtMoney(toMoney(v)), String(name ?? '')]}
                   />
                   <Legend verticalAlign="bottom" height={24} />
                 </PieChart>
@@ -366,9 +380,10 @@ export function Dashboard({ project, onAddPurchase }: Props) {
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))} />
                   <Tooltip
-                    formatter={(v: number, key: string) =>
-                      key === 'amount' ? [fmtMoney(v), '金额'] : [v, '笔数']
-                    }
+                    formatter={(v, key) => {
+                      const n = toMoney(v)
+                      return key === 'amount' ? [fmtMoney(n), '金额'] : [n, '笔数']
+                    }}
                   />
                   <Bar dataKey="amount" fill="#2563eb" radius={[4, 4, 0, 0]} />
                 </BarChart>
