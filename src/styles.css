@@ -63,7 +63,16 @@ textarea {
   display: grid;
   grid-template-rows: 52px 1fr;
   height: 100vh;
+  /* 100dvh keeps the layout above iOS Safari's collapsing UI chrome. */
+  height: 100dvh;
   overflow: hidden;
+}
+
+/* Last-resort guard against any one rogue child blowing out the viewport. */
+html,
+body,
+#root {
+  overflow-x: hidden;
 }
 
 .topbar {
@@ -72,7 +81,12 @@ textarea {
   display: flex;
   align-items: center;
   padding: 0 16px;
+  /* iOS safe areas: keep content clear of the notch / Dynamic Island. */
+  padding-top: env(safe-area-inset-top);
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
   gap: 16px;
+  min-width: 0;
   z-index: 10;
 }
 
@@ -110,6 +124,15 @@ textarea {
   color: var(--text-soft);
   cursor: pointer;
   transition: 0.15s;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.project-switcher > span:nth-child(2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .project-switcher:hover {
@@ -125,6 +148,7 @@ textarea {
   display: flex;
   gap: 4px;
   margin-left: auto;
+  flex: 0 0 auto;
 }
 
 .icon-btn {
@@ -147,6 +171,7 @@ textarea {
   display: grid;
   grid-template-columns: 220px 1fr;
   overflow: hidden;
+  min-width: 0;
 }
 
 .sidebar {
@@ -210,7 +235,9 @@ textarea {
 
 .main {
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg);
+  min-width: 0;
 }
 
 .view {
@@ -675,6 +702,7 @@ textarea {
   top: 0;
   z-index: 1;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .tab {
@@ -686,6 +714,7 @@ textarea {
   cursor: pointer;
   transition: 0.15s;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tab:hover {
@@ -834,6 +863,9 @@ textarea {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  /* Force horizontal scroll on the parent .card (overflow:auto) when the
+     viewport can't fit all columns, rather than letting columns squish. */
+  min-width: 680px;
 }
 
 .purchase-table th {
@@ -1084,6 +1116,7 @@ textarea {
     width: 240px;
     z-index: 50;
     box-shadow: var(--shadow-lg);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .view {
     padding: 16px;
@@ -1103,14 +1136,31 @@ textarea {
   }
   .drawer {
     width: 100%;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
   }
   .project-switcher {
-    max-width: 200px;
+    /* Stay inside the row even when the project name is long. */
+    max-width: clamp(120px, 40vw, 200px);
+    min-width: 0;
+    flex: 1 1 auto;
   }
   .project-switcher span:nth-child(2) {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  /* Shrink the brand and hide username text so right-side actions stay
+     on-screen; the avatar emoji + 退出 button are still visible. */
+  .topbar {
+    gap: 8px;
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  .topbar .logo span:nth-child(2) {
+    display: none;
+  }
+  .topbar-user .topbar-user-name {
+    display: none;
   }
   .purchase-table {
     font-size: 12px;

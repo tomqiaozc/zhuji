@@ -142,6 +142,15 @@ export function Topbar({
     onNewProject()
     closeMenu(true)
   }
+
+  // Some users name their projects "示范家 · 89㎡" — appending the area again
+  // would produce "示范家 · 89㎡ · 89㎡". Only append when the name doesn't
+  // already mention the unit.
+  function formatProjectLabel(p: Project): string {
+    if (!p.area) return p.name
+    if (p.name.includes('㎡')) return p.name
+    return `${p.name} · ${p.area}㎡`
+  }
   return (
     <header className="topbar">
       <button
@@ -168,7 +177,7 @@ export function Topbar({
         >
           <span aria-hidden="true">🏠</span>
           <span>
-            {project ? project.name + (project.area ? ` · ${project.area}㎡` : '') : '新建项目'}
+            {project ? formatProjectLabel(project) : '新建项目'}
           </span>
           <span className="arrow" aria-hidden="true">
             ▾
@@ -224,7 +233,8 @@ export function Topbar({
         {user && (
           <div className="topbar-user">
             <span data-testid="topbar-user" title="当前账号">
-              👤 {user.username}
+              <span aria-hidden="true">👤</span>{' '}
+              <span className="topbar-user-name">{user.username}</span>
             </span>
             <button data-testid="topbar-logout" onClick={handleLogout}>
               退出
