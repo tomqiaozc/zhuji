@@ -11,6 +11,7 @@ import {
 } from '@/lib/repository'
 import { useApp } from '@/store/app'
 import { fmtMoney } from '@/lib/format'
+import { useIsMobile } from '@/lib/useIsMobile'
 import type { DecorNode, NodeStatus, Project } from '@/types'
 import { RichTextEditor } from '@/components/RichTextEditor'
 import { NodeImagesPanel } from '@/components/NodeImagesPanel'
@@ -62,6 +63,8 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
     ) ?? []
 
   const activeNode = nodes.find((n) => n.id === activeNodeId) ?? nodes[0] ?? null
+  const isMobile = useIsMobile()
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   useEffect(() => {
     if (!activeNodeId && nodes.length > 0) setActiveNode(nodes[0].id)
@@ -82,41 +85,118 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
     return [...map.entries()]
   }, [nodes])
 
+  // Prev / next navigation across the flat node order. On mobile this is
+  // sticky-pinned under the topbar so the user can move between nodes
+  // without re-opening the picker sheet every time.
+  const activeIdx = activeNode ? nodes.findIndex((n) => n.id === activeNode.id) : -1
+  const prevNode = activeIdx > 0 ? nodes[activeIdx - 1] : null
+  const nextNode = activeIdx >= 0 && activeIdx < nodes.length - 1 ? nodes[activeIdx + 1] : null
+
+  async function gotoNode(id: string) {
+    if (id === activeNode?.id) return
+    if (await confirmLoseTipsDraft()) {
+      setActiveNode(id)
+      setPickerOpen(false)
+    }
+  }
+
+  const tree = (
+    <>
+      {grouped.map(([stage, list], si) => {
+        const isCollapsed = collapsed[stage]
+        return (
+          <div key={stage} className="stage-group">
+            <button
+              className={`stage-header ${isCollapsed ? 'collapsed' : ''}`}
+              onClick={() => toggleCollapsed(stage)}
+            >
+              <span className="caret">▾</span>
+              <span className="stage-num">{si}</span>
+              <span>{stage}</span>
+            </button>
+            <div className={`stage-nodes ${isCollapsed ? 'hidden' : ''}`}>
+              {list.map((n) => (
+                <button
+                  key={n.id}
+                  className={`node-link ${activeNode?.id === n.id ? 'active' : ''}`}
+                  onClick={() => gotoNode(n.id)}
+                >
+                  <span className={`status-dot ${n.status}`} />
+                  <span>{n.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </>
+  )
+
   return (
     <section className="view" style={{ padding: '24px 24px' }}>
-      <div className="node-shell">
-        <aside className="node-tree">
-          {grouped.map(([stage, list], si) => {
-            const isCollapsed = collapsed[stage]
-            return (
-              <div key={stage} className="stage-group">
-                <button
-                  className={`stage-header ${isCollapsed ? 'collapsed' : ''}`}
-                  onClick={() => toggleCollapsed(stage)}
-                >
-                  <span className="caret">▾</span>
-                  <span className="stage-num">{si}</span>
-                  <span>{stage}</span>
-                </button>
-                <div className={`stage-nodes ${isCollapsed ? 'hidden' : ''}`}>
-                  {list.map((n) => (
+      <div className={`node-shell ${isMobile ? 'mobile' : ''}`}>
+        {isMobile ? (
+          <>
+            {/* Sticky breadcrumb-style bar: prev / current (opens picker) / next.
+                Keeps the detail pane full-width while letting the user step
+                through the 62-node sequence without scrolling a stuck list. */}
+            <div className="node-mobile-bar">
+              <button
+                className="btn btn-sm"
+                onClick={() => prevNode && gotoNode(prevNode.id)}
+                disabled={!prevNode}
+                aria-label="上一节点"
+              >
+                ←
+              </button>
+              <button
+                className="node-mobile-current"
+                onClick={() => setPickerOpen(true)}
+                aria-label="切换节点"
+                aria-haspopup="dialog"
+              >
+                <span className="node-mobile-current-stage">{activeNode?.stage ?? '—'}</span>
+                <span className="node-mobile-current-name">
+                  {activeNode?.name ?? '选择节点'}
+                </span>
+                <span aria-hidden="true">▾</span>
+              </button>
+              <button
+                className="btn btn-sm"
+                onClick={() => nextNode && gotoNode(nextNode.id)}
+                disabled={!nextNode}
+                aria-label="下一节点"
+              >
+                →
+              </button>
+            </div>
+            {pickerOpen && (
+              <div
+                className="node-picker-sheet"
+                role="dialog"
+                aria-modal="true"
+                aria-label="选择节点"
+              >
+                <div className="node-picker-backdrop" onClick={() => setPickerOpen(false)} />
+                <div className="node-picker-panel">
+                  <div className="node-picker-header">
+                    <span>选择节点（{nodes.length} 个）</span>
                     <button
-                      key={n.id}
-                      className={`node-link ${activeNode?.id === n.id ? 'active' : ''}`}
-                      onClick={async () => {
-                        if (n.id === activeNode?.id) return
-                        if (await confirmLoseTipsDraft()) setActiveNode(n.id)
-                      }}
+                      className="btn btn-sm"
+                      onClick={() => setPickerOpen(false)}
+                      aria-label="关闭"
                     >
-                      <span className={`status-dot ${n.status}`} />
-                      <span>{n.name}</span>
+                      ✕
                     </button>
-                  ))}
+                  </div>
+                  <div className="node-picker-body node-tree">{tree}</div>
                 </div>
               </div>
-            )
-          })}
-        </aside>
+            )}
+          </>
+        ) : (
+          <aside className="node-tree">{tree}</aside>
+        )}
 
         {activeNode && (
           <NodePanel node={activeNode} project={project} onAddPurchase={onAddPurchase} />

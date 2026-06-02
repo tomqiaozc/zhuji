@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import {
@@ -17,6 +17,7 @@ import {
 import { db } from '@/db'
 import { fmtMoney } from '@/lib/format'
 import { useApp } from '@/store/app'
+import { useIsMobile } from '@/lib/useIsMobile'
 import type { Project } from '@/types'
 
 // Recharts 3.x widened Tooltip `formatter` to receive
@@ -50,27 +51,6 @@ const STAGE_COLORS: Record<string, string> = {
   安装: '#10b981',
   软装家电: '#84cc16',
   收尾: '#ef4444',
-}
-
-// Track the mobile breakpoint (matches the @media (max-width: 720px) block
-// in styles.css). On mobile we render the stage-bar as decorative segments
-// without per-segment click handlers — narrow segments (3-10px wide for
-// low-spend categories) are not realistic tap targets, and the full-width
-// legend buttons below already cover the filter intent. Desktop keeps the
-// original click-to-filter behavior on each segment.
-function useIsMobile(maxWidthPx = 720): boolean {
-  const [isMobile, setIsMobile] = useState(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
-    return window.matchMedia(`(max-width: ${maxWidthPx}px)`).matches
-  })
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
-    const mq = window.matchMedia(`(max-width: ${maxWidthPx}px)`)
-    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [maxWidthPx])
-  return isMobile
 }
 
 const PIE_COLORS = [

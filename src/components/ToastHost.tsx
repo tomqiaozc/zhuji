@@ -16,19 +16,10 @@ export function ToastHost() {
 
   return (
     <div
+      className="toast-host"
       data-testid="toast-host"
       role="status"
       aria-live="polite"
-      style={{
-        position: 'fixed',
-        bottom: 20,
-        right: 20,
-        zIndex: 300,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        maxWidth: 360,
-      }}
     >
       {items.map((it) => {
         const c = COLORS[it.level]

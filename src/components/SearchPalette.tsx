@@ -201,7 +201,30 @@ export function SearchPalette({ projectId, onClose, onJumpNode }: Props) {
           })
         )}
       </div>
-      <div className="search-foot">↑↓ 切换 · ⏎ 跳转 · Esc 关闭 · 共 {results.length} 条</div>
+      <div className="search-foot">
+        {/* On desktop the hint text is enough — the keys are right there.
+            On mobile (no physical keyboard) it's actionable instead: tap to
+            jump to the highlighted result, tap × to close. */}
+        <span className="search-foot-hint">
+          ↑↓ 切换 · ⏎ 跳转 · Esc 关闭 · 共 {results.length} 条
+        </span>
+        <div className="search-foot-actions">
+          <button
+            type="button"
+            className="btn btn-sm"
+            disabled={results.length === 0}
+            onClick={() => {
+              const r = results[activeIdx]
+              if (r) jump(r as unknown as Doc)
+            }}
+          >
+            跳转
+          </button>
+          <button type="button" className="btn btn-sm" onClick={onClose}>
+            关闭
+          </button>
+        </div>
+      </div>
     </Modal>
   )
 }
