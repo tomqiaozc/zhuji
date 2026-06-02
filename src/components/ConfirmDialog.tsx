@@ -26,8 +26,8 @@ export function ConfirmDialogHost() {
   if (!req) return null
 
   const isConfirm = req.kind === 'confirm'
-  const confirmLabel = isConfirm ? req.opts.confirmLabel ?? '确定' : req.opts.okLabel ?? '好的'
-  const cancelLabel = isConfirm ? req.opts.cancelLabel ?? '取消' : null
+  const confirmLabel = isConfirm ? (req.opts.confirmLabel ?? '确定') : (req.opts.okLabel ?? '好的')
+  const cancelLabel = isConfirm ? (req.opts.cancelLabel ?? '取消') : null
   const danger = isConfirm && req.opts.danger
   const title = req.opts.title
 
@@ -48,7 +48,10 @@ export function ConfirmDialogHost() {
         style={{ maxWidth: 420, width: '92vw' }}
       >
         {title && (
-          <h2 id="confirm-dialog-title" style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px' }}>
+          <h2
+            id="confirm-dialog-title"
+            style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px' }}
+          >
             {title}
           </h2>
         )}

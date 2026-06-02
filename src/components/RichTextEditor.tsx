@@ -303,11 +303,7 @@ export function RichTextEditor({ value, onChange, placeholder }: Props) {
     commitNow()
   }
 
-  function toolbarButton(
-    label: string,
-    onClick: () => void,
-    title: string,
-  ) {
+  function toolbarButton(label: string, onClick: () => void, title: string) {
     return (
       <button
         type="button"

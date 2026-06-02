@@ -83,18 +83,14 @@ async function withOptimistic<T>(
 
 /** Wipe the local cache. Use on logout to prevent cross-account leaks. */
 export async function clearLocalCache(): Promise<void> {
-  await db.transaction(
-    'rw',
-    [db.projects, db.nodes, db.purchases, db.reminders],
-    async () => {
-      await Promise.all([
-        db.projects.clear(),
-        db.nodes.clear(),
-        db.purchases.clear(),
-        db.reminders.clear(),
-      ])
-    },
-  )
+  await db.transaction('rw', [db.projects, db.nodes, db.purchases, db.reminders], async () => {
+    await Promise.all([
+      db.projects.clear(),
+      db.nodes.clear(),
+      db.purchases.clear(),
+      db.reminders.clear(),
+    ])
+  })
 }
 
 /** Fetch the current user's project list and replace the cached projects. */
@@ -162,9 +158,7 @@ export async function hydrateEverything(): Promise<void> {
 
 // ─── Projects ────────────────────────────────────────────────────
 
-export async function createProject(
-  input: Omit<Project, 'id' | 'createdAt'>,
-): Promise<Project> {
+export async function createProject(input: Omit<Project, 'id' | 'createdAt'>): Promise<Project> {
   // Optimistic insert with a temp id so the project list updates
   // instantly. The temp row is swapped for the authoritative server row
   // (which carries the real UUID + createdAt) once the POST returns.
@@ -231,31 +225,23 @@ export async function deleteProject(projectId: string): Promise<void> {
   const prevReminders = await db.reminders.where('projectId').equals(projectId).toArray()
   await withOptimistic(
     async () => {
-      await db.transaction(
-        'rw',
-        [db.projects, db.nodes, db.purchases, db.reminders],
-        async () => {
-          await db.projects.delete(projectId)
-          await db.nodes.where('projectId').equals(projectId).delete()
-          await db.purchases.where('projectId').equals(projectId).delete()
-          await db.reminders.where('projectId').equals(projectId).delete()
-        },
-      )
+      await db.transaction('rw', [db.projects, db.nodes, db.purchases, db.reminders], async () => {
+        await db.projects.delete(projectId)
+        await db.nodes.where('projectId').equals(projectId).delete()
+        await db.purchases.where('projectId').equals(projectId).delete()
+        await db.reminders.where('projectId').equals(projectId).delete()
+      })
     },
     async () => {
       await api.delete<void>(`/api/projects/${projectId}`)
     },
     async () => {
-      await db.transaction(
-        'rw',
-        [db.projects, db.nodes, db.purchases, db.reminders],
-        async () => {
-          if (prevProject) await db.projects.put(prevProject)
-          if (prevNodes.length) await db.nodes.bulkPut(prevNodes)
-          if (prevPurchases.length) await db.purchases.bulkPut(prevPurchases)
-          if (prevReminders.length) await db.reminders.bulkPut(prevReminders)
-        },
-      )
+      await db.transaction('rw', [db.projects, db.nodes, db.purchases, db.reminders], async () => {
+        if (prevProject) await db.projects.put(prevProject)
+        if (prevNodes.length) await db.nodes.bulkPut(prevNodes)
+        if (prevPurchases.length) await db.purchases.bulkPut(prevPurchases)
+        if (prevReminders.length) await db.reminders.bulkPut(prevReminders)
+      })
     },
   )
 }
