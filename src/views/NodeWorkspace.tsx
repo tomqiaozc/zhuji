@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
@@ -16,6 +16,28 @@ import { RichTextEditor } from '@/components/RichTextEditor'
 import { NodeImagesPanel } from '@/components/NodeImagesPanel'
 import { NodeWorkspaceOnboarding } from '@/components/NodeWorkspaceOnboarding'
 import { confirmDialog } from '@/lib/dialog'
+
+// Lightweight dirty-exit registry. TipsPanel registers a "do we have
+// unsaved tip edits?" probe; the surrounding NodeWorkspace / NodePanel
+// consult it before switching tab or active node. Keeping this at module
+// scope is simpler than threading a context, and there's only ever one
+// editable TipsPanel mounted at a time.
+let unsavedProbe: (() => boolean) | null = null
+
+export function registerUnsavedTipsProbe(probe: (() => boolean) | null) {
+  unsavedProbe = probe
+}
+
+async function confirmLoseTipsDraft(): Promise<boolean> {
+  if (!unsavedProbe || !unsavedProbe()) return true
+  return confirmDialog({
+    title: '放弃未保存的修改？',
+    message: '避坑要点编辑还没保存，离开后内容会丢失。',
+    confirmLabel: '放弃',
+    cancelLabel: '继续编辑',
+    danger: true,
+  })
+}
 
 interface Props {
   project: Project
@@ -77,7 +99,10 @@ export function NodeWorkspace({ project, onAddPurchase }: Props) {
                     <button
                       key={n.id}
                       className={`node-link ${activeNode?.id === n.id ? 'active' : ''}`}
-                      onClick={() => setActiveNode(n.id)}
+                      onClick={async () => {
+                        if (n.id === activeNode?.id) return
+                        if (await confirmLoseTipsDraft()) setActiveNode(n.id)
+                      }}
                     >
                       <span className={`status-dot ${n.status}`} />
                       <span>{n.name}</span>
@@ -123,6 +148,15 @@ function NodePanel({
     if (status === 'doing' && !node.actualStart) patch.actualStart = now
     if (status === 'done' && !node.actualEnd) patch.actualEnd = now
     await updateNode(node.id, patch)
+  }
+
+  async function switchTab(next: TabKey) {
+    if (next === tab) return
+    // Leaving the tips tab while a draft is dirty: ask first.
+    if (tab === 'tips' && next !== 'tips') {
+      if (!(await confirmLoseTipsDraft())) return
+    }
+    setTab(next)
   }
 
   return (
@@ -180,14 +214,14 @@ function NodePanel({
       <div className="tabs">
         <button
           className={`tab ${tab === 'tips' ? 'active' : ''}`}
-          onClick={() => setTab('tips')}
+          onClick={() => switchTab('tips')}
         >
           📌 避坑清单
           <span className="count">{node.tips.split('\n').filter((l) => l.trim()).length}</span>
         </button>
         <button
           className={`tab ${tab === 'check' ? 'active' : ''}`}
-          onClick={() => setTab('check')}
+          onClick={() => switchTab('check')}
         >
           ✅ Checklist
           <span className="count">
@@ -196,19 +230,19 @@ function NodePanel({
         </button>
         <button
           className={`tab ${tab === 'purchase' ? 'active' : ''}`}
-          onClick={() => setTab('purchase')}
+          onClick={() => switchTab('purchase')}
         >
           🧾 采购<span className="count">{purchases.length}</span>
         </button>
         <button
           className={`tab ${tab === 'image' ? 'active' : ''}`}
-          onClick={() => setTab('image')}
+          onClick={() => switchTab('image')}
         >
           🖼️ 图片
         </button>
         <button
           className={`tab ${tab === 'note' ? 'active' : ''}`}
-          onClick={() => setTab('note')}
+          onClick={() => switchTab('note')}
         >
           📝 备注
         </button>
@@ -333,6 +367,20 @@ function TipsPanel({ node }: { node: DecorNode }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(node.tips)
   useEffect(() => setDraft(node.tips), [node.tips])
+
+  // Keep refs so the registered probe always reads current state, not the
+  // closure captured at register time.
+  const editingRef = useRef(editing)
+  const draftRef = useRef(draft)
+  const nodeTipsRef = useRef(node.tips)
+  editingRef.current = editing
+  draftRef.current = draft
+  nodeTipsRef.current = node.tips
+
+  useEffect(() => {
+    registerUnsavedTipsProbe(() => editingRef.current && draftRef.current !== nodeTipsRef.current)
+    return () => registerUnsavedTipsProbe(null)
+  }, [])
 
   const lines = node.tips
     .split('\n')

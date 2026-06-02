@@ -42,10 +42,6 @@ export function AuthPage({ onAuthed }: Props) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    // Guard against IME-composition Enter accidentally firing the submit
-    // (mainly relevant if the user pastes/types CJK into username).
-    const ne = e.nativeEvent as InputEvent
-    if ('isComposing' in ne && (ne as { isComposing?: boolean }).isComposing) return
     const localErr = clientValidate()
     if (localErr) {
       setError(localErr)
@@ -84,6 +80,15 @@ export function AuthPage({ onAuthed }: Props) {
     }
   }
 
+  // Stop Enter from submitting the form while the IME is mid-composition
+  // (e.g. picking a CJK candidate). SubmitEvent doesn't carry isComposing,
+  // so the check has to happen at the keydown layer.
+  function blockComposingEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' && e.nativeEvent.isComposing) {
+      e.preventDefault()
+    }
+  }
+
   return (
     <div className="auth-shell">
       <form className="auth-card" onSubmit={submit}>
@@ -102,6 +107,7 @@ export function AuthPage({ onAuthed }: Props) {
             autoCorrect="off"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={blockComposingEnter}
             disabled={busy}
             required
           />
@@ -115,6 +121,7 @@ export function AuthPage({ onAuthed }: Props) {
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={blockComposingEnter}
             disabled={busy}
             required
           />

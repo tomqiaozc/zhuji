@@ -130,12 +130,16 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
         role="dialog"
         aria-modal="true"
         onKeyDown={(e) => {
-          // Enter on a text field would normally submit a <form>; the drawer
-          // doesn't use one, but we still want a friendly keyboard shortcut.
-          // Skip while the IME is composing (selecting a CJK candidate).
+          // Enter shortcut for "save". Limit to <input> targets only so:
+          // - clicking 保存 / 取消 with the keyboard doesn't double-fire
+          //   (button's own Enter handler is the click); we'd otherwise
+          //   call save() twice and risk a duplicate createPurchase.
+          // - <textarea> / <select> keep their native Enter semantics.
+          // Also skip while the IME is composing.
           if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
           const t = e.target as HTMLElement
-          if (t.tagName === 'TEXTAREA') return
+          if (t.tagName !== 'INPUT') return
+          e.preventDefault()
           if (!busy) void save()
         }}
       >
