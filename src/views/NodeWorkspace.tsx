@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
-import { deletePurchase } from '@/lib/cascade'
 import {
   addChecklistItem,
   patchChecklistItem,
@@ -11,11 +10,13 @@ import {
 } from '@/lib/repository'
 import { useApp } from '@/store/app'
 import { fmtMoney } from '@/lib/format'
-import type { DecorNode, NodeStatus, Project } from '@/types'
+import type { DecorNode, NodeStatus, Project, Purchase } from '@/types'
 import { RichTextEditor } from '@/components/RichTextEditor'
 import { NodeImagesPanel } from '@/components/NodeImagesPanel'
 import { NodeWorkspaceOnboarding } from '@/components/NodeWorkspaceOnboarding'
+import { PurchaseDrawer } from '@/components/PurchaseDrawer'
 import { confirmDialog } from '@/lib/dialog'
+import { softDeletePurchase } from '@/lib/softDelete'
 
 // Lightweight dirty-exit registry. TipsPanel registers a "do we have
 // unsaved tip edits?" probe; the surrounding NodeWorkspace / NodePanel
@@ -140,8 +141,8 @@ const NodePanel = memo(function NodePanel({
   project: Project
   onAddPurchase: (nodeId: string) => void
 }) {
-  void project
   const [tab, setTab] = useState<TabKey>('tips')
+  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null)
   const purchases =
     useLiveQuery(
       () => db.purchases.where('nodeId').equals(node.id).reverse().sortBy('purchaseDate'),
@@ -309,12 +310,31 @@ const NodePanel = memo(function NodePanel({
                       <td>{p.channel ?? '—'}</td>
                       <td>{p.purchaseDate ? dayjs(p.purchaseDate).format('M/D') : '—'}</td>
                       <td className="price-cell">{fmtMoney(p.totalPrice)}</td>
-                      <td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <button
+                          className="icon-btn"
+                          title="编辑"
+                          aria-label="编辑"
+                          data-testid={`node-purchase-edit-${p.id}`}
+                          onClick={() => setEditingPurchase(p)}
+                        >
+                          ✎
+                        </button>
                         <button
                           className="icon-btn"
                           title="删除"
                           aria-label="删除"
-                          onClick={() => void deletePurchase(p.id)}
+                          data-testid={`node-purchase-delete-${p.id}`}
+                          onClick={() => {
+                            void (async () => {
+                              const ok = await confirmDialog({
+                                message: '删除这笔采购？',
+                                confirmLabel: '删除',
+                                danger: true,
+                              })
+                              if (ok) await softDeletePurchase(p.id)
+                            })()
+                          }}
                         >
                           🗑️
                         </button>
@@ -340,6 +360,13 @@ const NodePanel = memo(function NodePanel({
         <div className="tab-panel">
           <NodeImagesPanel node={node} />
         </div>
+      )}
+      {editingPurchase && (
+        <PurchaseDrawer
+          project={project}
+          editing={editingPurchase}
+          onClose={() => setEditingPurchase(null)}
+        />
       )}
     </div>
   )

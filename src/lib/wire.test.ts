@@ -20,6 +20,7 @@ describe('projectFromWire', () => {
       type: '毛坯',
       start_date: '2026-01-01',
       expected_end_date: null,
+      budget: '200000.00',
       created_at: '2026-01-02T00:00:00Z',
     }
     const p = projectFromWire(wire)
@@ -29,6 +30,7 @@ describe('projectFromWire', () => {
     expect(p.type).toBe('毛坯')
     expect(p.startDate).toBe('2026-01-01')
     expect(p.expectedEndDate).toBeUndefined()
+    expect(p.budget).toBe(200000)
     expect(p.createdAt).toBe('2026-01-02T00:00:00Z')
   })
 
@@ -42,12 +44,14 @@ describe('projectFromWire', () => {
       type: null,
       start_date: null,
       expected_end_date: null,
+      budget: null,
       created_at: '2026-01-01T00:00:00Z',
     })
     expect(p.address).toBeUndefined()
     expect(p.area).toBeUndefined()
     expect(p.type).toBeUndefined()
     expect(p.startDate).toBeUndefined()
+    expect(p.budget).toBeUndefined()
   })
 })
 
@@ -60,6 +64,12 @@ describe('projectToWire', () => {
     expect(out.type).toBeNull()
     expect(out.start_date).toBeNull()
     expect(out.expected_end_date).toBeNull()
+    expect(out.budget).toBeNull()
+  })
+
+  it('passes budget through when set', () => {
+    const out = projectToWire({ name: 'X', budget: 300000 })
+    expect(out.budget).toBe(300000)
   })
 })
 

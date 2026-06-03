@@ -10,6 +10,9 @@ export interface Project {
   type?: ProjectType
   startDate?: string
   expectedEndDate?: string
+  /** Total renovation budget (CNY). Optional; renders the budget-vs-actual
+   *  card on Dashboard when set. */
+  budget?: number
   createdAt: string
 }
 

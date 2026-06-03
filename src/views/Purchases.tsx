@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import dayjs from 'dayjs'
 import { db } from '@/db'
-import { deletePurchase } from '@/lib/cascade'
+import { softDeletePurchase } from '@/lib/softDelete'
 import { fmtMoney } from '@/lib/format'
 import { useApp } from '@/store/app'
 import type { Project, Purchase } from '@/types'
@@ -239,7 +239,7 @@ export function Purchases({ project, onAddPurchase }: Props) {
                               confirmLabel: '删除',
                               danger: true,
                             })
-                            if (ok) await deletePurchase(p.id)
+                            if (ok) await softDeletePurchase(p.id)
                           })()
                         }}
                       >

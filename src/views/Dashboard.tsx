@@ -129,6 +129,8 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
     [purchases],
   )
 
+  const nodeMap = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
+
   // Bucket purchases into the last 8 weeks / 6 months by purchaseDate.
   const trendData = useMemo(() => {
     if (purchases.length === 0) return [] as { label: string; amount: number; count: number }[]
@@ -223,6 +225,13 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
             <div className="sub">{purchases.length} 笔采购</div>
           </div>
         </div>
+
+        {project.budget != null && project.budget > 0 && (
+          <div className="col-12 card" data-testid="budget-card">
+            <h2 className="card-title">预算 vs 实际</h2>
+            <BudgetBar budget={project.budget} spent={totalSpent} />
+          </div>
+        )}
 
         <div className="col-3 card">
           <h2 className="card-title">本周采购</h2>
@@ -415,7 +424,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
               }}
             >
               {topPurchases.map((p, i) => {
-                const node = nodes.find((n) => n.id === p.nodeId)
+                const node = nodeMap.get(p.nodeId)
                 return (
                   <li
                     key={p.id}
@@ -474,7 +483,7 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
           ) : (
             <div className="activity-list">
               {recent.map((p) => {
-                const node = nodes.find((n) => n.id === p.nodeId)
+                const node = nodeMap.get(p.nodeId)
                 return (
                   <div key={p.id} className="activity-item">
                     <div className="icon-wrap">🧾</div>
@@ -497,3 +506,72 @@ const DashboardInner = memo(function DashboardInner({ project, onAddPurchase }: 
     </section>
   )
 })
+
+function BudgetBar({ budget, spent }: { budget: number; spent: number }) {
+  const pct = budget > 0 ? (spent / budget) * 100 : 0
+  const over = spent > budget
+  const remaining = budget - spent
+  const barColor = over ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#16a34a'
+  const fillPct = Math.min(pct, 100)
+
+  return (
+    <div data-testid="budget-bar">
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'baseline',
+          marginBottom: 8,
+          fontSize: 13,
+          color: 'var(--text-soft)',
+        }}
+      >
+        <span>
+          已花 <strong data-testid="budget-spent" style={{ color: 'var(--text)' }}>
+            {fmtMoney(spent)}
+          </strong>{' '}
+          / 预算 <strong style={{ color: 'var(--text)' }}>{fmtMoney(budget)}</strong>
+        </span>
+        <span
+          data-testid="budget-pct"
+          style={{ color: over ? '#ef4444' : 'var(--text-soft)', fontWeight: 600 }}
+        >
+          {pct.toFixed(1)}%
+        </span>
+      </div>
+      <div
+        style={{
+          height: 14,
+          width: '100%',
+          background: '#e5e7eb',
+          borderRadius: 7,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${fillPct}%`,
+            background: barColor,
+            transition: 'width 200ms ease',
+          }}
+        />
+      </div>
+      <div
+        data-testid="budget-status"
+        style={{
+          marginTop: 8,
+          fontSize: 12,
+          color: over ? '#ef4444' : 'var(--text-soft)',
+          fontWeight: over ? 600 : 400,
+        }}
+      >
+        {over
+          ? `⚠️ 已超预算 ${fmtMoney(-remaining)}`
+          : pct >= 80
+            ? `⚠️ 接近预算上限，剩余 ${fmtMoney(remaining)}`
+            : `剩余预算 ${fmtMoney(remaining)}`}
+      </div>
+    </div>
+  )
+}

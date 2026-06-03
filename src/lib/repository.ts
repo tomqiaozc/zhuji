@@ -200,6 +200,7 @@ export async function updateProject(
   if (patch.type !== undefined) body.type = patch.type ?? null
   if (patch.startDate !== undefined) body.start_date = patch.startDate ?? null
   if (patch.expectedEndDate !== undefined) body.expected_end_date = patch.expectedEndDate ?? null
+  if (patch.budget !== undefined) body.budget = patch.budget ?? null
   return withOptimistic(
     async () => {
       if (optimistic) await db.projects.put(optimistic)

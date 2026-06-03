@@ -77,6 +77,7 @@ class ProjectIn(BaseModel):
     type: str | None = None
     start_date: date | None = None
     expected_end_date: date | None = None
+    budget: float | None = None
 
 
 class ProjectUpdate(BaseModel):
@@ -86,6 +87,7 @@ class ProjectUpdate(BaseModel):
     type: str | None = None
     start_date: date | None = None
     expected_end_date: date | None = None
+    budget: float | None = None
 
 
 class ProjectOut(_ORM):
@@ -97,6 +99,7 @@ class ProjectOut(_ORM):
     type: str | None = None
     start_date: date | None = None
     expected_end_date: date | None = None
+    budget: float | None = None
     created_at: datetime
 
 

@@ -91,6 +91,7 @@ export default function App() {
     type?: '毛坯' | '老房改造' | '局部翻新'
     startDate?: string
     expectedEndDate?: string
+    budget?: number
   }) {
     try {
       const proj = await createProject(data)

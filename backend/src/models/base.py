@@ -86,6 +86,7 @@ class Project(Base):
     type: Mapped[Optional[str]] = mapped_column(String(32))
     start_date: Mapped[Optional[date]] = mapped_column(Date)
     expected_end_date: Mapped[Optional[date]] = mapped_column(Date)
+    budget: Mapped[Optional[float]] = mapped_column(Numeric(14, 2))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
 
     user: Mapped[User] = relationship(back_populates="projects")

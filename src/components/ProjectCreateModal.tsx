@@ -12,6 +12,7 @@ interface Props {
     type?: ProjectType
     startDate?: string
     expectedEndDate?: string
+    budget?: number
   }) => void | Promise<void>
   onDemoLoaded?: (projectId: string) => void
   onClose: () => void
@@ -24,6 +25,7 @@ export function ProjectCreateModal({ allowCancel, onSubmit, onDemoLoaded, onClos
   const [type, setType] = useState<ProjectType>('毛坯')
   const [startDate, setStartDate] = useState('')
   const [expectedEndDate, setExpectedEndDate] = useState('')
+  const [budget, setBudget] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function submit() {
@@ -37,6 +39,7 @@ export function ProjectCreateModal({ allowCancel, onSubmit, onDemoLoaded, onClos
         type,
         startDate: startDate || undefined,
         expectedEndDate: expectedEndDate || undefined,
+        budget: budget ? Number(budget) : undefined,
       })
     } finally {
       setBusy(false)
@@ -113,6 +116,17 @@ export function ProjectCreateModal({ allowCancel, onSubmit, onDemoLoaded, onClos
             onChange={(e) => setExpectedEndDate(e.target.value)}
           />
         </div>
+      </div>
+      <div className="form-row">
+        <label>总预算（¥，可选）</label>
+        <input
+          type="number"
+          data-testid="project-budget"
+          value={budget}
+          onChange={(e) => setBudget(e.target.value)}
+          placeholder="200000"
+          min="0"
+        />
       </div>
       <div className="drawer-actions">
         {allowCancel && (

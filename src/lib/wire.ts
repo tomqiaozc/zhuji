@@ -38,6 +38,7 @@ export interface ProjectOut {
   type: string | null
   start_date: string | null
   expected_end_date: string | null
+  budget: number | string | null
   created_at: string
 }
 
@@ -48,6 +49,7 @@ export interface ProjectIn {
   type?: string | null
   start_date?: string | null
   expected_end_date?: string | null
+  budget?: number | null
 }
 
 export interface NodeOut {
@@ -194,6 +196,7 @@ export function projectFromWire(p: ProjectOut): Project {
     type: toProjectType(p.type),
     startDate: p.start_date ?? undefined,
     expectedEndDate: p.expected_end_date ?? undefined,
+    budget: p.budget == null ? undefined : num(p.budget),
     createdAt: p.created_at,
   }
 }
@@ -206,6 +209,7 @@ export function projectToWire(p: Omit<Project, 'id' | 'createdAt'>): ProjectIn {
     type: (p.type ?? null) as string | null,
     start_date: p.startDate ?? null,
     expected_end_date: p.expectedEndDate ?? null,
+    budget: p.budget ?? null,
   }
 }
 

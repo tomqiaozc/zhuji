@@ -6,6 +6,7 @@ import { useAuth } from '@/store/auth'
 import type { Project, ProjectType } from '@/types'
 import { exportProjectPdf } from '@/lib/backup'
 import { TemplateEditor } from '@/components/TemplateEditor'
+import { CategoryManager } from '@/components/CategoryManager'
 import { clearLocalCache, hydrateEverything } from '@/lib/repository'
 import { clearAssetViewerToken } from '@/lib/api'
 import { alertDialog, confirmDialog } from '@/lib/dialog'
@@ -26,6 +27,7 @@ export function Settings({ project, onNewProject }: Props) {
   const [type, setType] = useState<ProjectType>(project.type ?? '毛坯')
   const [startDate, setStartDate] = useState(project.startDate ?? '')
   const [expectedEndDate, setExpectedEndDate] = useState(project.expectedEndDate ?? '')
+  const [budget, setBudget] = useState(project.budget != null ? String(project.budget) : '')
   const [saved, setSaved] = useState(false)
   const [demoBusy, setDemoBusy] = useState(false)
   const [demoMsg, setDemoMsg] = useState<string | null>(null)
@@ -41,6 +43,7 @@ export function Settings({ project, onNewProject }: Props) {
       type,
       startDate: startDate || undefined,
       expectedEndDate: expectedEndDate || undefined,
+      budget: budget ? Number(budget) : undefined,
     })
     setSaved(true)
     setTimeout(() => setSaved(false), 1800)
@@ -163,6 +166,17 @@ export function Settings({ project, onNewProject }: Props) {
               />
             </div>
           </div>
+          <div className="form-row">
+            <label>总预算（¥）</label>
+            <input
+              type="number"
+              data-testid="settings-budget"
+              value={budget}
+              onChange={(e) => setBudget(e.target.value)}
+              placeholder="留空表示未设置预算"
+              min="0"
+            />
+          </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12 }}>
             <button className="btn btn-primary" onClick={save}>
               保存
@@ -221,6 +235,14 @@ export function Settings({ project, onNewProject }: Props) {
           <button className="btn btn-primary" onClick={handleExportPdf}>
             生成 PDF
           </button>
+        </div>
+
+        <div className="col-12 card">
+          <h2 className="card-title">采购品类</h2>
+          <p style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
+            管理「记一笔采购」时下拉里出现的品类。可重命名、排序、删除，新增的品类立即在所有项目可用。
+          </p>
+          <CategoryManager />
         </div>
 
         <div className="col-12 card">

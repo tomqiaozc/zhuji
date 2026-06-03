@@ -466,6 +466,7 @@ async def load_demo_project(db: "AsyncSession", user: User) -> Dict[str, Any]:
         type="毛坯",
         start_date=start_date,
         expected_end_date=expected_end,
+        budget=200000.0,
     )
     db.add(project)
     await db.flush()  # we need project.id for FKs

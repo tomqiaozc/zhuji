@@ -5,6 +5,7 @@ import { db } from '@/db'
 import { createPurchase, updatePurchase } from '@/lib/repository'
 import { fmtMoney } from '@/lib/format'
 import { pushToast } from '@/lib/toast'
+import { getCategories, subscribeCategories } from '@/lib/categories'
 import type { Project, Purchase } from '@/types'
 import { Modal } from './ui/Modal'
 
@@ -15,8 +16,6 @@ interface Props {
   onClose: () => void
 }
 
-const DEFAULT_CATEGORIES = ['主材', '辅材', '家电', '家具', '软装', '五金', '工程', '其他']
-
 export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Props) {
   const nodes =
     useLiveQuery(
@@ -24,12 +23,15 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
       [project.id],
     ) ?? []
 
+  const [categories, setCategoriesState] = useState<string[]>(() => getCategories())
+  useEffect(() => subscribeCategories(setCategoriesState), [])
+
   const [nodeId, setNodeId] = useState<string>(editing?.nodeId ?? presetNodeId ?? '')
   const [name, setName] = useState(editing?.name ?? '')
   const [spec, setSpec] = useState(editing?.spec ?? '')
   const [brand, setBrand] = useState(editing?.brand ?? '')
   const [channel, setChannel] = useState(editing?.channel ?? '')
-  const [category, setCategory] = useState(editing?.category ?? '主材')
+  const [category, setCategory] = useState(editing?.category ?? categories[0] ?? '主材')
   const [unitPrice, setUnitPrice] = useState(editing ? String(editing.unitPrice) : '')
   const [quantity, setQuantity] = useState(editing ? String(editing.quantity) : '1')
   const [purchaseDate, setPurchaseDate] = useState(
@@ -185,8 +187,18 @@ export function PurchaseDrawer({ project, presetNodeId, editing, onClose }: Prop
           </div>
           <div className="form-row">
             <label>品类</label>
-            <select value={category} onChange={(e) => setCategory(e.target.value)}>
-              {DEFAULT_CATEGORIES.map((c) => (
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              data-testid="purchase-category"
+            >
+              {/* Surface the editing record's existing category even if the user
+                  has since removed it from their list — keep showing the value
+                  the row was saved with so we don't silently corrupt history. */}
+              {category && !categories.includes(category) && (
+                <option value={category}>{category}</option>
+              )}
+              {categories.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
