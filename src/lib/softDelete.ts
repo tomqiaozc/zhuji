@@ -4,13 +4,19 @@
  * Hides the row locally first (mirrors the optimistic write pattern) and
  * keeps the server call pending behind a timer. The toast offers an
  * "撤销" action; if the user clicks it before the timer expires the row
- * is restored to the cache and no DELETE is sent. If the timer fires the
- * real backend delete runs through the repository (which handles its own
- * rollback if the server rejects).
+ * is restored to the cache and no DELETE is sent.
+ *
+ * Failure handling on commit is OWNED HERE, not delegated to the
+ * repository. Repository helpers like `deletePurchase` snapshot the cache
+ * BEFORE their own work and roll back from that snapshot on server
+ * failure — but by the time we call them, our `hide()` has already
+ * emptied the cache, so their rollback would put nothing back. Instead
+ * we keep the pre-hide `snap` ourselves and restore from it (+ a toast)
+ * if the backend rejects the delayed delete.
  *
  * The local hide is best-effort: if the row isn't in Dexie (rare) we
- * fall through to scheduling the delete anyway so the server still gets
- * the call.
+ * skip arming the timer entirely so the server can't be asked to delete
+ * something we never saw.
  */
 
 import { db } from '@/db'
@@ -18,7 +24,7 @@ import {
   deleteNode as repoDeleteNode,
   deletePurchase as repoDeletePurchase,
 } from '@/lib/repository'
-import { dismissToast, pushActionToast } from '@/lib/toast'
+import { dismissToast, pushActionToast, pushToast } from '@/lib/toast'
 import type { DecorNode, Purchase, Reminder } from '@/types'
 
 const UNDO_WINDOW_MS = 5000
@@ -65,6 +71,7 @@ function arm<T>(
   restore: (s: T) => Promise<void>,
   commit: () => Promise<void>,
   toastText: string,
+  failMessage: string,
 ): void {
   let undone = false
   void hide()
@@ -73,7 +80,21 @@ function arm<T>(
   const timer = setTimeout(() => {
     if (undone) return
     dismissToast(toastId)
-    void commit()
+    // Own the failure path here — see module docstring. Repository
+    // rollback can't recover the row because we already evicted it.
+    void (async () => {
+      try {
+        await commit()
+      } catch {
+        try {
+          await restore(snap)
+        } catch {
+          // Restore is best-effort; if Dexie itself is wedged there's
+          // nothing we can do beyond surfacing the toast below.
+        }
+        pushToast(failMessage, 'error', 6000)
+      }
+    })()
   }, UNDO_WINDOW_MS)
   const toastId = pushActionToast(toastText, {
     label: '撤销',
@@ -100,6 +121,7 @@ export async function softDeletePurchase(purchaseId: string): Promise<void> {
       await repoDeletePurchase(purchaseId)
     },
     '已删除采购',
+    '删除采购失败，已恢复本地数据',
   )
 }
 
@@ -121,6 +143,7 @@ export async function softDeleteNode(nodeId: string): Promise<void> {
       await repoDeleteNode(nodeId)
     },
     '已删除节点',
+    '删除节点失败，已恢复本地数据',
   )
 }
 
