@@ -91,7 +91,7 @@ jobs:
       # Make sure App Service didn't keep an old startup command from
       # a previous misconfiguration. Mirrors what rewind does.
       - name: Clear stale startup command (backend)
-        uses: azure/CLI@v2
+        uses: azure/CLI@v3
         with:
           inlineScript: |
             az resource update \
