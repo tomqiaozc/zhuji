@@ -14,13 +14,18 @@
 
 ## Screenshots / 界面截图
 
-> 📸 _Screenshots pending. Run the app, drop images into `docs/screenshots/`, and reference them here._
-> _截图待补充。运行应用后将界面截图放入 `docs/screenshots/` 并在此引用。_
+| Dashboard / 总览 | Timeline Gantt / 时间轴甘特图 |
+| :---: | :---: |
+| [![Dashboard](docs/screenshots/dashboard.png)](docs/screenshots/dashboard.png) | [![Timeline](docs/screenshots/gantt.png)](docs/screenshots/gantt.png) |
+| **Budget / progress / spend at a glance, with per-stage & per-category charts**<br>预算 / 进度 / 花费一屏总览，阶段与品类花费可视化 | **Planned vs. actual dual-track Gantt, drag bars to adjust dates**<br>计划 / 实际双轨甘特，色条可拖拽调整日期 |
 
-<!--
-![Timeline Gantt](docs/screenshots/gantt.png)
-![Purchases](docs/screenshots/purchases.png)
--->
+| Node Workspace / 节点工作台 | Purchases / 采购流水 |
+| :---: | :---: |
+| [![Node Workspace](docs/screenshots/nodes.png)](docs/screenshots/nodes.png) | [![Purchases](docs/screenshots/purchases.png)](docs/screenshots/purchases.png) |
+| **Each node carries pitfalls / checklist / purchases / images / notes**<br>每个节点带避坑清单 / Checklist / 采购 / 图片 / 备注 | **Full purchase ledger, filter by stage / node / category, export to Excel**<br>全项目采购明细，按阶段 / 节点 / 品类筛选，导出 Excel |
+
+> Screenshots are from the built-in demo project (one-click "Load demo project" on the welcome screen).
+> 截图取自内置示例项目（欢迎页「加载示例项目」一键载入）。
 
 ## Tech Stack / 技术栈
 
