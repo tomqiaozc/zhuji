@@ -1,38 +1,39 @@
-# 筑迹 Zhuji — 装修管家 Web App
+# Zhuji 筑迹 — Home Renovation Manager / 装修管家 Web App
 
 [![CI](https://github.com/tomqiaozc/zhuji/actions/workflows/ci.yml/badge.svg)](https://github.com/tomqiaozc/zhuji/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](#许可)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](#license--许可)
 ![React](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
 ![Azure](https://img.shields.io/badge/Azure-0078D4?style=flat&logo=microsoftazure&logoColor=white)
 
-> 单人业主的装修全流程管家。M5/M6 起为**云端为权威 + 本地缓存**的全栈架构：
-> 用户名/密码登录，节点 / 采购 / 提醒数据存 PostgreSQL，图片资产存 Azure Blob，
-> 多设备共享同一份记录；前端 Dexie/IndexedDB 仅作读缓存以保留 `useLiveQuery` 的响应性。
+> A full-lifecycle renovation manager for a single homeowner. Since M5/M6 it runs a **cloud-authoritative + local-cache** full-stack architecture: username/password login, with milestones / purchases / reminders stored in PostgreSQL and image assets in Azure Blob, shared across devices; the frontend Dexie/IndexedDB acts only as a read cache to keep `useLiveQuery` reactive.
 
-## 界面截图
+> 单人业主的装修全流程管家。M5/M6 起为**云端为权威 + 本地缓存**的全栈架构：用户名/密码登录，节点 / 采购 / 提醒数据存 PostgreSQL，图片资产存 Azure Blob，多设备共享同一份记录；前端 Dexie/IndexedDB 仅作读缓存以保留 `useLiveQuery` 的响应性。
 
-> 📸 _截图待补充。运行应用后将界面截图放入 `docs/screenshots/` 并在此引用。_
+## Screenshots / 界面截图
+
+> 📸 _Screenshots pending. Run the app, drop images into `docs/screenshots/`, and reference them here._
+> _截图待补充。运行应用后将界面截图放入 `docs/screenshots/` 并在此引用。_
 
 <!--
-![时间线甘特图](docs/screenshots/gantt.png)
-![采购管理](docs/screenshots/purchases.png)
+![Timeline Gantt](docs/screenshots/gantt.png)
+![Purchases](docs/screenshots/purchases.png)
 -->
 
-## 技术栈
+## Tech Stack / 技术栈
 
-- **前端**：React 18 + Vite 6 + TypeScript + Zustand（UI 状态）+ Dexie/IndexedDB（**只读缓存**）
-- **后端**：FastAPI + SQLAlchemy[asyncio] + Alembic + PostgreSQL
-- **资产存储**：Azure Blob Storage（图片），通过后端鉴权代理 `/api/assets/:id/content` 提供
-- **认证**：username + password（bcrypt）→ JWT Bearer
-- **可视化**：Recharts + 自研 SVG Gantt
-- **搜索**：MiniSearch（中文按字 + 词混合分词）
-- **PWA**：vite-plugin-pwa（autoUpdate）
-- **测试**：pytest（后端）+ Playwright（前端 M5 黄金路径）
+- **Frontend / 前端**: React 18 + Vite 6 + TypeScript + Zustand (UI state) + Dexie/IndexedDB (**read-only cache / 只读缓存**)
+- **Backend / 后端**: FastAPI + SQLAlchemy[asyncio] + Alembic + PostgreSQL
+- **Asset storage / 资产存储**: Azure Blob Storage (images), served via an authenticated backend proxy `/api/assets/:id/content`
+- **Auth / 认证**: username + password (bcrypt) → JWT Bearer
+- **Visualization / 可视化**: Recharts + custom SVG Gantt / 自研 SVG Gantt
+- **Search / 搜索**: MiniSearch (Chinese char + word hybrid tokenization / 中文按字 + 词混合分词)
+- **PWA**: vite-plugin-pwa (autoUpdate)
+- **Testing / 测试**: pytest (backend / 后端) + Playwright (frontend M5 golden path / 前端 M5 黄金路径)
 
-## 架构概览
+## Architecture / 架构概览
 
 ```
 ┌──────────────────────────────┐         ┌──────────────────────────────┐
@@ -55,7 +56,7 @@
 读路径：登录 / 启动时从 `GET /api/projects/:id/snapshot` 拉一次完整快照填充 Dexie，
 之后 UI 全部从 Dexie 读，无需再访问后端。退出登录会清空本设备的 Dexie 缓存，云端数据不动。
 
-## 本地开发
+## Local Development / 本地开发
 
 需要本地能跑后端：用 docker-compose 起 Postgres + backend 最省事。
 
@@ -76,7 +77,7 @@ npm run dev
 > 资产列表会返回 503，前端会显示"对象存储未配置：本地开发环境不支持图片上传，
 > 部署到 Azure 后自动可用"。其他功能（节点 / 采购 / 提醒 / 时间线 / PDF）不受影响。
 
-### 运行测试
+### Running Tests / 运行测试
 
 ```bash
 # 后端单元 / 集成测试（用内存 SQLite，无需 Postgres）
@@ -100,7 +101,7 @@ cd .. && VITE_API_PROXY_TARGET=http://127.0.0.1:8000 npx playwright test
 
 要求：Node 18+ / Python 3.9+。Playwright 首次运行会自动安装 Chromium。
 
-## 数据持久化与隔离
+## Data Persistence & Isolation / 数据持久化与隔离
 
 数据全部存在云端 Postgres，每张业务表都有 `user_id` 外键，跨用户访问统一返回 404，
 不会泄漏资源存在性。图片走 Azure Blob，容器私有，前端只能通过后端鉴权后的
@@ -112,7 +113,7 @@ cd .. && VITE_API_PROXY_TARGET=http://127.0.0.1:8000 npx playwright test
 > M3 阶段的本地 Zip 备份 / 镜像目录功能在 M5 中已移除——数据由服务端
 > 负责备份。PDF 装修档案导出（"设置 → 生成 PDF"）保留。
 
-## 部署
+## Deployment / 部署
 
 `docker compose up --build` 跑本地。生产部署到 Azure（M6）使用
 Bicep + GitHub Actions，复用业主现有 `rg-rewind-ea` 资源组下的
@@ -125,10 +126,10 @@ App Service Plan / PostgreSQL / Key Vault / Storage / App Insights。
 
 新增云端成本 < ¥5/月（仅 Storage 流量；App Service / Postgres 复用现有 Plan）。
 
-## 变更日志
+## Changelog / 变更日志
 
-详见 [CHANGELOG.md](CHANGELOG.md)。
+See [CHANGELOG.md](CHANGELOG.md). / 详见 [CHANGELOG.md](CHANGELOG.md)。
 
-## 许可
+## License / 许可
 
 MIT
