@@ -1,8 +1,25 @@
 # 筑迹 Zhuji — 装修管家 Web App
 
+[![CI](https://github.com/tomqiaozc/zhuji/actions/workflows/ci.yml/badge.svg)](https://github.com/tomqiaozc/zhuji/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](#许可)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=flat&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=flat&logo=postgresql&logoColor=white)
+![Azure](https://img.shields.io/badge/Azure-0078D4?style=flat&logo=microsoftazure&logoColor=white)
+
 > 单人业主的装修全流程管家。M5/M6 起为**云端为权威 + 本地缓存**的全栈架构：
 > 用户名/密码登录，节点 / 采购 / 提醒数据存 PostgreSQL，图片资产存 Azure Blob，
 > 多设备共享同一份记录；前端 Dexie/IndexedDB 仅作读缓存以保留 `useLiveQuery` 的响应性。
+
+## 界面截图
+
+> 📸 _截图待补充。运行应用后将界面截图放入 `docs/screenshots/` 并在此引用。_
+
+<!--
+![时间线甘特图](docs/screenshots/gantt.png)
+![采购管理](docs/screenshots/purchases.png)
+-->
 
 ## 技术栈
 
