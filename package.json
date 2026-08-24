@@ -17,22 +17,22 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
-    "dayjs": "^1.11.13",
-    "dexie": "^4.4.3",
+    "dayjs": "^1.11.23",
+    "dexie": "^4.4.5",
     "dexie-react-hooks": "^4.4.0",
     "minisearch": "^7.2.0",
-    "react": "^19.2.7",
-    "react-dom": "^19.2.7",
-    "recharts": "^3.8.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "recharts": "^3.10.1",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.60.0",
     "@testing-library/dom": "^10.4.1",
-    "@types/react": "^19.2.16",
-    "@types/react-dom": "^19.2.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.39.4",
